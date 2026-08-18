@@ -496,6 +496,28 @@ export const repairsApi = {
     write(KEYS.repairs, items);
     return items[idx];
   },
+  addRating: (id, rating, review) => {
+    const items = read(KEYS.repairs, []);
+    const idx = items.findIndex((r) => r.id === id);
+    if (idx === -1) throw new Error('Servis tidak ditemukan');
+    const r = Number(rating);
+    if (!r || r < 1 || r > 5) throw new Error('Rating harus 1-5');
+    if (items[idx].status !== 'picked_up') throw new Error('Rating hanya bisa diberikan setelah perangkat diambil');
+    if (items[idx].rating) throw new Error('Ulasan sudah pernah dikirim');
+    items[idx].rating = r;
+    items[idx].review = String(review || '').trim();
+    items[idx].rated_at = new Date().toISOString();
+    items[idx].updated_at = items[idx].rated_at;
+    write(KEYS.repairs, items);
+    return items[idx];
+  },
+  addRatingByTicket: (ticket_no, rating, review) => {
+    const items = read(KEYS.repairs, []);
+    const target = items.find((r) => r.ticket_no === ticket_no);
+    if (!target) throw new Error('Tiket tidak ditemukan');
+    return repairsApi.addRating(target.id, rating, review);
+  },
+  withReviews: () => read(KEYS.repairs, []).filter((r) => r.rating && r.rating >= 1),
 };
 
 // Helper: compute totals with payments

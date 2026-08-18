@@ -21,6 +21,7 @@ import UsersPage from '@/pages/Users';
 import BranchesPage from '@/pages/Branches';
 import SettingsPage from '@/pages/Settings';
 import ReportsPage from '@/pages/Reports';
+import ReviewsPage from '@/pages/Reviews';
 
 function App() {
   return (
@@ -59,6 +60,10 @@ function App() {
 
               <Route path="/reports" element={
                 <ProtectedRoute roles={['admin']}><ReportsPage /></ProtectedRoute>
+              } />
+
+              <Route path="/reviews" element={
+                <ProtectedRoute roles={['admin', 'cashier']}><ReviewsPage /></ProtectedRoute>
               } />
 
               <Route path="/users" element={

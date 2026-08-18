@@ -64,9 +64,13 @@ CREATE TABLE IF NOT EXISTS `repairs` (
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `completed_at` DATETIME DEFAULT NULL,
   `picked_up_at` DATETIME DEFAULT NULL,
+  `rating` TINYINT UNSIGNED DEFAULT NULL,
+  `review` TEXT DEFAULT NULL,
+  `rated_at` DATETIME DEFAULT NULL,
   PRIMARY KEY (`id`),
   INDEX `idx_status` (`status`),
   INDEX `idx_customer` (`customer_id`),
+  INDEX `idx_rating` (`rating`),
   CONSTRAINT `fk_repair_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers`(`id`) ON DELETE RESTRICT,
   CONSTRAINT `fk_repair_technician` FOREIGN KEY (`technician_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -152,3 +156,20 @@ INSERT INTO `repair_parts` (`repair_id`,`sparepart_id`,`qty`,`price`) VALUES
 (3, 4, 1,  200000),
 (4, 6, 1,  120000),
 (5, 3, 1,  250000);
+
+
+-- ============================================================
+-- Migration for existing installs (safe to re-run).
+-- Adds rating & review columns to `repairs` if not present.
+-- ============================================================
+SET @db := DATABASE();
+SET @col := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA=@db AND TABLE_NAME='repairs' AND COLUMN_NAME='rating');
+SET @sql := IF(@col=0,
+  'ALTER TABLE `repairs`
+     ADD COLUMN `rating` TINYINT UNSIGNED DEFAULT NULL,
+     ADD COLUMN `review` TEXT DEFAULT NULL,
+     ADD COLUMN `rated_at` DATETIME DEFAULT NULL,
+     ADD INDEX `idx_rating` (`rating`)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { CheckCircle2, Clock, PackageCheck, Home, Smartphone, Phone, MapPin, MessageCircle, Search, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Clock, PackageCheck, Home, Smartphone, Phone, MapPin, MessageCircle, Search, AlertCircle, RefreshCw, Star, Send } from 'lucide-react';
+import { toast } from 'sonner';
 import { repairsApi, customersApi, usersApi, settingsApi, computeTotal, ensureSeed } from '@/lib/store';
 import { STATUS_LABELS, STATUS_ORDER } from '@/lib/mockData';
 import { formatIDR, formatDate, waLink } from '@/lib/utils';
@@ -50,11 +51,44 @@ export default function PublicStatusPage() {
   const { ticket_no } = useParams();
   ensureSeed();
 
-  const repair = repairsApi.getByTicket(ticket_no);
-  const customer = repair ? customersApi.get(repair.customer_id) : null;
-  const users = usersApi.list();
+  // Reactive tick — re-reads localStorage on interval, storage events, and tab focus.
+  const [tick, setTick] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    const bump = () => setTick((t) => t + 1);
+    // Poll every 4s so the page reflects backend status changes without user action.
+    const interval = setInterval(bump, 4000);
+    // Cross-tab sync (same browser, different tab).
+    window.addEventListener('storage', bump);
+    // Refresh when tab regains focus (e.g. customer switches back from another app).
+    const onVisible = () => { if (document.visibilityState === 'visible') bump(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', bump);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', bump);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', bump);
+    };
+  }, []);
+
+  const manualRefresh = () => {
+    setRefreshing(true);
+    setTick((t) => t + 1);
+    setTimeout(() => setRefreshing(false), 500);
+  };
+
+  // Re-read every render (tick is dependency of downstream memos indirectly).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const repair = useMemo(() => repairsApi.getByTicket(ticket_no), [ticket_no, tick]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const customer = useMemo(() => (repair ? customersApi.get(repair.customer_id) : null), [repair?.id, tick]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const users = useMemo(() => usersApi.list(), [tick]);
   const technician = repair?.technician_id ? users.find((u) => u.id === repair.technician_id) : null;
-  const settings = settingsApi.get();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const settings = useMemo(() => settingsApi.get(), [tick]);
   const totals = repair ? computeTotal(repair) : null;
 
   const timeline = useMemo(() => {
@@ -72,7 +106,7 @@ export default function PublicStatusPage() {
   if (!repair) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex flex-col">
-        <PublicHeader settings={settings} />
+        <PublicHeader settings={settings} onRefresh={manualRefresh} refreshing={refreshing} />
         <div className="flex-1 grid place-items-center p-6">
           <div className="max-w-md text-center space-y-4">
             <div className="mx-auto h-16 w-16 rounded-full bg-destructive/10 grid place-items-center">
@@ -99,7 +133,7 @@ export default function PublicStatusPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary/5 via-background to-background" data-testid="public-status-page">
-      <PublicHeader settings={settings} />
+      <PublicHeader settings={settings} onRefresh={manualRefresh} refreshing={refreshing} />
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
         {/* Hero status card */}
@@ -109,8 +143,11 @@ export default function PublicStatusPage() {
               <CurrentIcon className="h-8 w-8 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-mono text-xs text-muted-foreground mb-1">{repair.ticket_no}</div>
-              <div className={`inline-flex text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border ${tone.chip}`}>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="font-mono text-xs text-muted-foreground">{repair.ticket_no}</div>
+                <div className="text-[10px] text-muted-foreground/70">• update otomatis</div>
+              </div>
+              <div className={`inline-flex text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border ${tone.chip}`} data-testid="current-status-chip">
                 {STATUS_LABELS[repair.status]}
               </div>
               <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight mt-3">
@@ -127,7 +164,7 @@ export default function PublicStatusPage() {
         <div className="rounded-lg border border-border bg-card p-6" data-testid="status-timeline">
           <div className="overline mb-4">Alur Servis</div>
           <div className="space-y-4">
-            {timeline.map((t, i) => {
+            {timeline.map((t) => {
               const Icon = t.icon;
               return (
                 <div key={t.key} className="flex items-center gap-4">
@@ -148,6 +185,11 @@ export default function PublicStatusPage() {
             })}
           </div>
         </div>
+
+        {/* Rating form (only when picked_up) */}
+        {repair.status === 'picked_up' && (
+          <RatingSection repair={repair} onSubmitted={() => setTick((t) => t + 1)} />
+        )}
 
         {/* Details */}
         <div className="rounded-lg border border-border bg-card p-6 space-y-4" data-testid="status-details">
@@ -238,7 +280,7 @@ function Row({ label, value, mono, truncate }) {
   );
 }
 
-function PublicHeader({ settings }) {
+function PublicHeader({ settings, onRefresh, refreshing }) {
   return (
     <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-20">
       <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
@@ -249,11 +291,133 @@ function PublicHeader({ settings }) {
             <Smartphone className="h-4 w-4" />
           </div>
         )}
-        <div>
+        <div className="flex-1 min-w-0">
           <div className="font-display font-bold text-sm tracking-tight leading-tight">{settings.shop_name}</div>
           <div className="text-[10px] text-muted-foreground">Cek Status Servis</div>
         </div>
+        <button
+          onClick={onRefresh}
+          data-testid="btn-refresh-status"
+          title="Muat ulang status"
+          className="h-9 w-9 grid place-items-center rounded-md border border-border hover:bg-accent transition-colors"
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+        </button>
       </div>
     </header>
+  );
+}
+
+// ============ Rating & Review Section ============
+function RatingSection({ repair, onSubmitted }) {
+  const [rating, setRating] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [review, setReview] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // Already rated → show thank-you
+  if (repair.rating) {
+    return (
+      <div
+        className="rounded-lg border-2 border-emerald-500/30 bg-emerald-500/5 p-6 text-center animate-slide-up"
+        data-testid="rating-thankyou"
+      >
+        <div className="mx-auto h-14 w-14 rounded-full bg-emerald-500 text-white grid place-items-center mb-3">
+          <CheckCircle2 className="h-7 w-7" />
+        </div>
+        <div className="font-display text-lg font-bold tracking-tight">Terima kasih atas ulasannya!</div>
+        <p className="text-sm text-muted-foreground mt-1">Masukan Anda sangat berarti bagi kami.</p>
+        <div className="flex items-center justify-center gap-1 mt-4" data-testid="rating-display">
+          {[1, 2, 3, 4, 5].map((s) => (
+            <Star
+              key={s}
+              className={`h-6 w-6 ${s <= repair.rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30'}`}
+            />
+          ))}
+        </div>
+        {repair.review && (
+          <div className="mt-4 mx-auto max-w-md text-sm text-muted-foreground italic border-t border-emerald-500/20 pt-3">
+            "{repair.review}"
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const submit = () => {
+    if (!rating) {
+      toast.error('Pilih rating bintang terlebih dahulu');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      repairsApi.addRating(repair.id, rating, review);
+      toast.success('Terima kasih! Ulasan Anda telah dikirim.');
+      onSubmitted?.();
+    } catch (err) {
+      toast.error(err.message || 'Gagal mengirim ulasan');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const active = hover || rating;
+  const RATING_LABELS = ['', 'Sangat Kurang', 'Kurang', 'Cukup', 'Baik', 'Sangat Baik'];
+
+  return (
+    <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-6 animate-slide-up" data-testid="rating-form">
+      <div className="text-center mb-4">
+        <div className="overline text-primary mb-1">Beri Ulasan</div>
+        <div className="font-display text-lg font-bold tracking-tight">Bagaimana pengalaman servis Anda?</div>
+        <p className="text-xs text-muted-foreground mt-1">Bantu kami memberikan pelayanan yang lebih baik.</p>
+      </div>
+
+      <div className="flex items-center justify-center gap-2 mb-2">
+        {[1, 2, 3, 4, 5].map((s) => (
+          <button
+            key={s}
+            type="button"
+            data-testid={`star-${s}`}
+            onClick={() => setRating(s)}
+            onMouseEnter={() => setHover(s)}
+            onMouseLeave={() => setHover(0)}
+            className="transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary/40 rounded-md p-1"
+          >
+            <Star
+              className={`h-9 w-9 transition-colors ${
+                s <= active ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30'
+              }`}
+            />
+          </button>
+        ))}
+      </div>
+      <div className="text-center text-sm font-semibold text-primary h-5" data-testid="rating-label">
+        {active > 0 ? RATING_LABELS[active] : 'Pilih bintang'}
+      </div>
+
+      <div className="mt-4">
+        <label className="text-sm font-medium mb-1.5 block">Ulasan (opsional)</label>
+        <textarea
+          rows={3}
+          value={review}
+          onChange={(e) => setReview(e.target.value)}
+          maxLength={500}
+          placeholder="Ceritakan pengalaman Anda…"
+          data-testid="review-textarea"
+          className="w-full px-3 py-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none text-sm"
+        />
+        <div className="text-[10px] text-muted-foreground text-right mt-0.5">{review.length}/500</div>
+      </div>
+
+      <button
+        onClick={submit}
+        disabled={submitting || !rating}
+        data-testid="btn-submit-rating"
+        className="mt-3 w-full inline-flex items-center justify-center gap-2 h-11 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Send className="h-4 w-4" />
+        {submitting ? 'Mengirim…' : 'Kirim Ulasan'}
+      </button>
+    </div>
   );
 }

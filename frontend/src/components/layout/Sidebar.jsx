@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Wrench, Package, UserCog, LogOut, Smartphone, BarChart3, Settings, Building2 } from 'lucide-react';
+import { LayoutDashboard, Users, Wrench, Package, UserCog, LogOut, Smartphone, BarChart3, Settings, Building2, Star } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { ROLE_LABELS } from '@/lib/mockData';
@@ -12,6 +12,7 @@ const NAV = [
   { to: '/customers', label: 'Pelanggan', icon: Users, roles: ['admin', 'cashier'] },
   { to: '/spareparts', label: 'Sparepart', icon: Package, roles: ['admin', 'technician'] },
   { to: '/reports', label: 'Laporan', icon: BarChart3, roles: ['admin'] },
+  { to: '/reviews', label: 'Ulasan Pelanggan', icon: Star, roles: ['admin', 'cashier'] },
   { to: '/users', label: 'Kelola User', icon: UserCog, roles: ['admin'] },
   { to: '/branches', label: 'Cabang', icon: Building2, roles: ['admin'] },
   { to: '/settings', label: 'Konfigurasi', icon: Settings, roles: ['admin'] },

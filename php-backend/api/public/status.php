@@ -83,4 +83,7 @@ json_response([
         'paid'    => $paid,
         'balance' => max(0, $total - $paid),
     ],
+    'rating'       => isset($r['rating']) && $r['rating'] ? (int)$r['rating'] : null,
+    'review'       => $r['review'] ?? null,
+    'rated_at'     => $r['rated_at'] ?? null,
 ]);

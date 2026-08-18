@@ -20,7 +20,26 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
-## Implemented (2026-01-18) — Iteration 4 (Multi Cabang)
+## Implemented (2026-02) — Iteration 5 (Rating & Auto-Refresh)
+- **Bug fix: Public status auto-refresh**. Halaman `/status/:ticket_no` sekarang re-read localStorage setiap 4 detik (setInterval), listen `storage` event (sync antar tab), `visibilitychange`, dan `focus` event. Ditambah tombol manual refresh (`btn-refresh-status`) di header publik. Status di halaman pelanggan otomatis update saat admin mengubah status di tab lain.
+- **Rating Pelanggan (fitur baru)**:
+  - Form rating (5 bintang interaktif + textarea ulasan max 500 karakter + label sematik "Sangat Kurang → Sangat Baik") muncul di halaman `/status/:ticket_no` hanya jika status = `picked_up` dan belum ada rating.
+  - Setelah submit → card "Terima kasih atas ulasannya!" dengan bintang yang dipilih & kutipan ulasan. Rating final, tidak bisa diubah.
+  - Persisted ke localStorage (fields baru di repair: `rating`, `review`, `rated_at`).
+  - `repairsApi.addRating`, `addRatingByTicket`, `withReviews` di `/app/frontend/src/lib/store.js`.
+- **Halaman "Ulasan Pelanggan" (admin/cashier)** di `/reviews`:
+  - Stats cards: rata-rata rating, total ulasan, % ulasan positif (rating 4-5).
+  - Distribusi rating (progress bar per bintang, klik untuk filter).
+  - Search (nama pelanggan / tiket / perangkat / isi ulasan) + filter dropdown by rating.
+  - List ulasan dengan avatar, star chip, kutipan, link ke detail tiket.
+- **PHP backend siap-cPanel**:
+  - Kolom `rating`, `review`, `rated_at` + index di tabel `repairs` (`/app/php-backend/database.sql`).
+  - Migration ALTER TABLE aman-re-run untuk install lama.
+  - Endpoint publik `POST /api/public/rating.php` dengan validasi (rating 1-5, status harus picked_up, one-shot).
+  - `GET /api/public/status.php` mengembalikan `rating`/`review`/`rated_at`.
+- Testing 7/7 skenario PASSED (iteration_5.json).
+
+
 - **Branches CRUD** (admin only) di `/branches`: kelola nama, kode, alamat, telepon, set default cabang
 - **BranchProvider + BranchSelector**: dropdown di topbar kanan atas untuk switch "Semua Cabang" atau pilih cabang spesifik. Non-admin (teknisi/kasir) LOCKED ke cabang mereka.
 - **Data scoping otomatis**: Dashboard KPI, Repairs list, Customers, Sparepart, RepairNew customer dropdown — semua auto-filter by selected branch. New records inherit branch dari selected/customer branch.
@@ -65,11 +84,11 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 - Iteration 2: 15/15 new features passed (100%)
 
 ## Backlog / Next Actions
-- P1: Konektor axios untuk switch antara localStorage mock ↔ PHP backend endpoint (saat ini masih hardcoded ke localStorage)
-- P1: Print/PDF invoice yang rapi (saat ini menggunakan window.print browser default)
-- P2: Payment tracking (partial payments log)
-- P2: Warranty/garansi tracking untuk servis selesai
-- P2: Barcode/QR code generator untuk tiket
-- P3: Multi-cabang (multi-outlet)
-- P3: Notifikasi WhatsApp otomatis via Twilio (opsional, saat ini manual wa.me)
-- P3: Export laporan ke Excel/PDF
+- P0: **Cari Pelanggan Cepat** — auto-fill data pelanggan saat mengetik nomor HP di form buat tiket baru (jika pelanggan sudah ada di sistem).
+- P1: **Ekspor Laporan** — download laporan bulanan sebagai Excel/PDF.
+- P1: **Notifikasi Stok** — email/WA ke admin ketika stok sparepart di bawah threshold.
+- P1: **Twilio WA Otomatis** — kirim WA otomatis saat status berubah ke "Ready" (butuh `integration_playbook_expert_v2`).
+- P2: Warranty/garansi tracking untuk servis selesai.
+- P2: Ulasan bisa di-*reply* oleh admin (private note atau public reply).
+- P2: Dashboard widget "Rating rata-rata bulan ini".
+
