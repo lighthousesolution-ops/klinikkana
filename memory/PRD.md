@@ -20,6 +20,17 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-02) — Iteration 6 (Reply Ulasan)
+- **Admin balasan pada ulasan**: Di halaman `/reviews`, admin bisa klik "Balas Ulasan" pada setiap ulasan → tampil textarea (max 500 char) → simpan. Balasan ditampilkan sebagai blockquote biru dengan nama admin & tanggal. Admin bisa Edit/Hapus balasan.
+- **Balasan tampil di halaman publik**: Card "Terima kasih atas ulasannya!" di `/status/:ticket_no` sekarang menampilkan blok "💬 Balasan dari toko" berisi balasan admin (auto-refresh mengikuti mekanisme yang sudah ada).
+- **Persistensi**: field baru `admin_reply`, `admin_reply_by`, `admin_reply_at` di data repair (localStorage + PHP schema).
+- **RBAC**: Hanya `admin` yang bisa membalas/edit/hapus. Kasir bisa melihat ulasan & balasan tapi tidak bisa membalas.
+- **PHP backend**:
+  - Kolom baru + migration ALTER TABLE aman-re-run di `/app/php-backend/database.sql`.
+  - Endpoint `POST /api/repairs/reply.php?id={id}` dan `DELETE /api/repairs/reply.php?id={id}` (admin-only).
+  - `GET /api/public/status.php` mengembalikan `admin_reply` + `admin_reply_at`.
+- Smoke-tested end-to-end via Playwright: rating submit → admin login → reply submit → verify tampil di halaman publik pelanggan. ✅
+
 ## Implemented (2026-02) — Iteration 5 (Rating & Auto-Refresh)
 - **Bug fix: Public status auto-refresh**. Halaman `/status/:ticket_no` sekarang re-read localStorage setiap 4 detik (setInterval), listen `storage` event (sync antar tab), `visibilitychange`, dan `focus` event. Ditambah tombol manual refresh (`btn-refresh-status`) di header publik. Status di halaman pelanggan otomatis update saat admin mengubah status di tab lain.
 - **Rating Pelanggan (fitur baru)**:
@@ -89,6 +100,5 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 - P1: **Notifikasi Stok** — email/WA ke admin ketika stok sparepart di bawah threshold.
 - P1: **Twilio WA Otomatis** — kirim WA otomatis saat status berubah ke "Ready" (butuh `integration_playbook_expert_v2`).
 - P2: Warranty/garansi tracking untuk servis selesai.
-- P2: Ulasan bisa di-*reply* oleh admin (private note atau public reply).
 - P2: Dashboard widget "Rating rata-rata bulan ini".
 

@@ -86,4 +86,6 @@ json_response([
     'rating'       => isset($r['rating']) && $r['rating'] ? (int)$r['rating'] : null,
     'review'       => $r['review'] ?? null,
     'rated_at'     => $r['rated_at'] ?? null,
+    'admin_reply'  => $r['admin_reply'] ?? null,
+    'admin_reply_at' => $r['admin_reply_at'] ?? null,
 ]);

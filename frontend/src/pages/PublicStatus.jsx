@@ -340,6 +340,12 @@ function RatingSection({ repair, onSubmitted }) {
             "{repair.review}"
           </div>
         )}
+        {repair.admin_reply && (
+          <div className="mt-4 mx-auto max-w-md text-left bg-primary/5 border-l-4 border-primary/50 rounded-r-md p-3" data-testid="admin-reply-public">
+            <div className="text-xs font-semibold text-primary mb-1">💬 Balasan dari toko</div>
+            <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">{repair.admin_reply}</p>
+          </div>
+        )}
       </div>
     );
   }

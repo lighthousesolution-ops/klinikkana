@@ -517,6 +517,32 @@ export const repairsApi = {
     if (!target) throw new Error('Tiket tidak ditemukan');
     return repairsApi.addRating(target.id, rating, review);
   },
+  replyReview: (id, reply, user_id) => {
+    const items = read(KEYS.repairs, []);
+    const idx = items.findIndex((r) => r.id === id);
+    if (idx === -1) throw new Error('Servis tidak ditemukan');
+    if (!items[idx].rating) throw new Error('Ulasan belum ada');
+    const text = String(reply || '').trim();
+    if (!text) throw new Error('Balasan tidak boleh kosong');
+    if (text.length > 500) throw new Error('Balasan maksimal 500 karakter');
+    items[idx].admin_reply = text;
+    items[idx].admin_reply_by = user_id || null;
+    items[idx].admin_reply_at = new Date().toISOString();
+    items[idx].updated_at = items[idx].admin_reply_at;
+    write(KEYS.repairs, items);
+    return items[idx];
+  },
+  deleteReply: (id) => {
+    const items = read(KEYS.repairs, []);
+    const idx = items.findIndex((r) => r.id === id);
+    if (idx === -1) throw new Error('Servis tidak ditemukan');
+    delete items[idx].admin_reply;
+    delete items[idx].admin_reply_by;
+    delete items[idx].admin_reply_at;
+    items[idx].updated_at = new Date().toISOString();
+    write(KEYS.repairs, items);
+    return items[idx];
+  },
   withReviews: () => read(KEYS.repairs, []).filter((r) => r.rating && r.rating >= 1),
 };
 
