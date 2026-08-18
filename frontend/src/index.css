@@ -187,10 +187,13 @@ aside.bg-sidebar .overline,
         width: 58mm !important;
         font-size: 10px !important;
     }
-    .print-thermal @page {
-        size: 58mm auto;
-        margin: 2mm;
+    /* Thermal 80mm */
+    .print-thermal-80 {
+        width: 80mm !important;
+        font-size: 11px !important;
     }
+    /* Note: @page paper-size for thermal receipts is injected dynamically
+       from Invoice.jsx per mode, since @page cannot be scoped by class. */
 }
 @media screen {
     .print-only { display: none; }

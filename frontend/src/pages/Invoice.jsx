@@ -15,7 +15,6 @@ export default function InvoicePage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [mode, setMode] = useState('a4');
-
   const repair = repairsApi.get(id);
   const customer = repair ? customersApi.get(repair.customer_id) : null;
   const spareparts = sparepartsApi.list();
@@ -34,8 +33,21 @@ export default function InvoicePage() {
   }, [repair]);
 
   useEffect(() => {
-    document.body.classList.toggle('print-thermal', mode === 'thermal');
-    return () => document.body.classList.remove('print-thermal');
+    // Toggle body classes so @media print picks the right paper size.
+    document.body.classList.toggle('print-thermal', mode === 'thermal58');
+    document.body.classList.toggle('print-thermal-80', mode === 'thermal80');
+    return () => {
+      document.body.classList.remove('print-thermal');
+      document.body.classList.remove('print-thermal-80');
+    };
+  }, [mode]);
+
+  // Inject a dynamic @page rule for the chosen paper size. @page cannot be
+  // scoped by a class selector, so we swap the whole rule per mode.
+  const pageStyle = useMemo(() => {
+    if (mode === 'thermal58') return '@page { size: 58mm auto; margin: 2mm; }';
+    if (mode === 'thermal80') return '@page { size: 80mm auto; margin: 3mm; }';
+    return '@page { size: A4; margin: 12mm; }';
   }, [mode]);
 
   if (!repair) {
@@ -49,6 +61,8 @@ export default function InvoicePage() {
 
   return (
     <div className="min-h-screen bg-muted/30 py-6 print:bg-white print:py-0" data-testid="invoice-page">
+      {/* Dynamic @page rule per print mode. */}
+      <style>{`@media print { ${pageStyle} }`}</style>
       {/* Toolbar (screen only) */}
       <div className="no-print max-w-3xl mx-auto px-4 mb-4">
         <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border rounded-md p-3 shadow-sm">
@@ -61,9 +75,13 @@ export default function InvoicePage() {
                 className={`px-3 h-8 rounded-sm text-sm font-medium transition-colors ${mode === 'a4' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}>
                 A4
               </button>
-              <button onClick={() => setMode('thermal')} data-testid="mode-thermal"
-                className={`px-3 h-8 rounded-sm text-sm font-medium transition-colors ${mode === 'thermal' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}>
+              <button onClick={() => setMode('thermal58')} data-testid="mode-thermal-58"
+                className={`px-3 h-8 rounded-sm text-sm font-medium transition-colors ${mode === 'thermal58' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}>
                 Thermal 58mm
+              </button>
+              <button onClick={() => setMode('thermal80')} data-testid="mode-thermal-80"
+                className={`px-3 h-8 rounded-sm text-sm font-medium transition-colors ${mode === 'thermal80' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}>
+                Thermal 80mm
               </button>
             </div>
             <button onClick={() => window.print()} data-testid="btn-print-now"
@@ -78,7 +96,16 @@ export default function InvoicePage() {
       {mode === 'a4' ? (
         <InvoiceA4 repair={repair} customer={customer} spMap={spMap} technician={technician} settings={settings} totals={totals} qrValue={qrValue} />
       ) : (
-        <InvoiceThermal repair={repair} customer={customer} spMap={spMap} settings={settings} totals={totals} qrValue={qrValue} />
+        <InvoiceThermal
+          repair={repair}
+          customer={customer}
+          spMap={spMap}
+          technician={technician}
+          settings={settings}
+          totals={totals}
+          qrValue={qrValue}
+          size={mode === 'thermal80' ? '80mm' : '58mm'}
+        />
       )}
     </div>
   );
@@ -250,42 +277,64 @@ function InvoiceA4({ repair, customer, spMap, technician, settings, totals, qrVa
   );
 }
 
-function InvoiceThermal({ repair, customer, spMap, settings, totals, qrValue }) {
+function InvoiceThermal({ repair, customer, spMap, technician, settings, totals, qrValue, size = '58mm' }) {
+  // Scaled sizing for 58mm vs 80mm receipts.
+  const is80 = size === '80mm';
+  const fs = {
+    base: is80 ? '11px' : '10px',
+    small: is80 ? '10px' : '9px',
+    tiny: is80 ? '9px' : '8px',
+    title: is80 ? '15px' : '13px',
+    section: is80 ? '13px' : '11px',
+    total: is80 ? '13px' : '11px',
+  };
+  const qrSize = is80 ? 100 : 70;
+  const padding = is80 ? '5mm' : '4mm';
+  const logoH = is80 ? '38px' : '30px';
+
   return (
-    <div className="mx-auto bg-white text-black shadow-md print:shadow-none border border-border print:border-0 print-page"
-      style={{ width: '58mm', padding: '4mm', fontSize: '10px', fontFamily: 'IBM Plex Mono, ui-monospace, monospace', lineHeight: 1.35 }}
-      data-testid="invoice-thermal">
+    <div className={`mx-auto bg-white text-black shadow-md print:shadow-none border border-border print:border-0 print-page ${is80 ? 'print-thermal-80' : 'print-thermal'}`}
+      style={{ width: size, padding, fontSize: fs.base, fontFamily: 'IBM Plex Mono, ui-monospace, monospace', lineHeight: 1.35 }}
+      data-testid={is80 ? 'invoice-thermal-80' : 'invoice-thermal-58'}>
       {/* Header */}
       <div className="text-center border-b border-dashed border-black pb-2 mb-2">
         {settings.logo_url && (
-          <img src={settings.logo_url} alt="Logo" style={{ height: '30px', width: 'auto', margin: '0 auto 4px', objectFit: 'contain' }} />
+          <img src={settings.logo_url} alt="Logo" style={{ height: logoH, width: 'auto', margin: '0 auto 4px', objectFit: 'contain' }} />
         )}
-        <div style={{ fontSize: '13px', fontWeight: 700 }}>{settings.shop_name}</div>
-        <div style={{ fontSize: '9px' }}>{settings.shop_address}</div>
-        <div style={{ fontSize: '9px' }}>{settings.shop_phone}</div>
+        <div style={{ fontSize: fs.title, fontWeight: 700 }}>{settings.shop_name}</div>
+        <div style={{ fontSize: fs.small }}>{settings.shop_address}</div>
+        <div style={{ fontSize: fs.small }}>{settings.shop_phone}</div>
       </div>
 
       <div className="text-center mb-2">
-        <div style={{ fontSize: '11px', fontWeight: 700 }}>NOTA SERVIS</div>
-        <div style={{ fontSize: '10px' }}>{repair.ticket_no}</div>
+        <div style={{ fontSize: fs.section, fontWeight: 700 }}>NOTA SERVIS</div>
+        <div style={{ fontSize: fs.base }}>{repair.ticket_no}</div>
       </div>
 
-      <div className="border-b border-dashed border-black pb-2 mb-2" style={{ fontSize: '9px' }}>
+      <div className="border-b border-dashed border-black pb-2 mb-2" style={{ fontSize: fs.small }}>
         <div className="flex justify-between"><span>Tgl</span><span>{formatDate(repair.created_at)}</span></div>
         <div className="flex justify-between"><span>Nama</span><span style={{ maxWidth: '60%', textAlign: 'right' }}>{customer?.name}</span></div>
         <div className="flex justify-between"><span>HP</span><span>{customer?.phone}</span></div>
         <div className="flex justify-between"><span>Device</span><span style={{ maxWidth: '60%', textAlign: 'right' }}>{repair.device_brand} {repair.device_model}</span></div>
-        {repair.serial_no && <div className="flex justify-between"><span>SN</span><span style={{ maxWidth: '60%', textAlign: 'right', fontSize: '8px' }}>{repair.serial_no}</span></div>}
+        {repair.serial_no && <div className="flex justify-between"><span>SN</span><span style={{ maxWidth: '60%', textAlign: 'right', fontSize: fs.tiny }}>{repair.serial_no}</span></div>}
+        <div className="flex justify-between"><span>Teknisi</span><span style={{ maxWidth: '60%', textAlign: 'right' }} data-testid="thermal-technician">{technician?.full_name || '—'}</span></div>
         <div className="flex justify-between"><span>Status</span><span style={{ fontWeight: 700 }}>{STATUS_LABELS[repair.status]}</span></div>
       </div>
 
-      <div style={{ fontSize: '9px' }} className="mb-2">
+      <div style={{ fontSize: fs.small }} className="mb-2">
         <div style={{ fontWeight: 700, marginBottom: '2px' }}>Keluhan:</div>
         <div>{repair.complaint}</div>
       </div>
 
+      {repair.notes && (
+        <div className="border-t border-dashed border-black pt-2 mb-2" style={{ fontSize: fs.small }} data-testid="thermal-technician-notes">
+          <div style={{ fontWeight: 700, marginBottom: '2px' }}>Catatan Teknisi:</div>
+          <div style={{ fontStyle: 'italic' }}>{repair.notes}</div>
+        </div>
+      )}
+
       {/* Items */}
-      <div className="border-t border-dashed border-black pt-2" style={{ fontSize: '9px' }}>
+      <div className="border-t border-dashed border-black pt-2" style={{ fontSize: fs.small }}>
         <div className="flex justify-between" style={{ fontWeight: 700 }}>
           <span>Jasa Servis</span>
           <span>{formatIDR(repair.service_fee)}</span>
@@ -302,11 +351,11 @@ function InvoiceThermal({ repair, customer, spMap, settings, totals, qrValue }) 
       </div>
 
       {/* Totals */}
-      <div className="border-t border-dashed border-black mt-2 pt-2" style={{ fontSize: '10px' }}>
+      <div className="border-t border-dashed border-black mt-2 pt-2" style={{ fontSize: fs.base }}>
         <div className="flex justify-between"><span>Total</span><span style={{ fontWeight: 700 }}>{formatIDR(totals.total)}</span></div>
         <div className="flex justify-between"><span>DP</span><span>-{formatIDR(totals.deposit)}</span></div>
         {totals.payments_total > 0 && <div className="flex justify-between"><span>Cicilan</span><span>-{formatIDR(totals.payments_total)}</span></div>}
-        <div className="flex justify-between border-t border-black mt-1 pt-1" style={{ fontWeight: 700, fontSize: '11px' }}>
+        <div className="flex justify-between border-t border-black mt-1 pt-1" style={{ fontWeight: 700, fontSize: fs.total }}>
           <span>Sisa</span>
           <span>{formatIDR(Math.max(0, totals.balance))}</span>
         </div>
@@ -320,17 +369,17 @@ function InvoiceThermal({ repair, customer, spMap, settings, totals, qrValue }) 
       {/* QR */}
       <div className="text-center mt-3 pt-2 border-t border-dashed border-black">
         <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <QRCodeSVG value={qrValue} size={70} level="M" includeMargin={false} />
+          <QRCodeSVG value={qrValue} size={qrSize} level="M" includeMargin={false} />
         </div>
-        <div style={{ fontSize: '8px', marginTop: '3px', fontWeight: 700 }}>SCAN CEK STATUS</div>
-        <div style={{ fontSize: '7px', marginTop: '2px', wordBreak: 'break-all' }}>{qrValue.replace(/^https?:\/\//, '')}</div>
+        <div style={{ fontSize: fs.tiny, marginTop: '3px', fontWeight: 700 }}>SCAN CEK STATUS</div>
+        <div style={{ fontSize: is80 ? '8px' : '7px', marginTop: '2px', wordBreak: 'break-all' }}>{qrValue.replace(/^https?:\/\//, '')}</div>
       </div>
 
       {/* Footer */}
-      <div className="text-center mt-3 border-t border-dashed border-black pt-2 whitespace-pre-line" style={{ fontSize: '8px' }}>
+      <div className="text-center mt-3 border-t border-dashed border-black pt-2 whitespace-pre-line" style={{ fontSize: fs.tiny }}>
         {settings.invoice_footer}
       </div>
-      <div className="text-center" style={{ fontSize: '8px', marginTop: '4px' }}>
+      <div className="text-center" style={{ fontSize: fs.tiny, marginTop: '4px' }}>
         {formatDateTime(new Date().toISOString())}
       </div>
     </div>

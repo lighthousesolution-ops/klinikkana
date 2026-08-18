@@ -20,6 +20,14 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-02) — Iteration 8 (Nota Thermal 80mm + Teknisi)
+- **Nota Thermal 80mm** ditambahkan sebagai opsi cetak baru di halaman Invoice. Tombol pilihan sekarang: A4 · Thermal 58mm · Thermal 80mm.
+- **80mm version**: layout scaled up (fontSize base 11px, QR 100px, padding 5mm, logo 38px) — cocok untuk printer thermal POS standar 80mm.
+- **Teknisi ditampilkan di kedua nota thermal**: baris baru "Teknisi: {nama}" di section informasi tiket (58mm & 80mm).
+- **Catatan Teknisi ditampilkan** (kalau ada) sebagai section terpisah dengan judul "Catatan Teknisi:" di italic — muncul di 58mm & 80mm.
+- **Dynamic `@page` size injection**: karena `@page` CSS tidak bisa di-scope oleh class, halaman Invoice inject `<style>` element dinamis sesuai mode (`58mm auto` / `80mm auto` / `A4`) supaya printer dialog otomatis pilih ukuran kertas yang benar.
+- Verified via Playwright: kedua mode render, `data-testid='thermal-technician'` = "Budi Santoso", `data-testid='thermal-technician-notes'` visible, width 80mm = 302px sesuai ekspektasi.
+
 ## Implemented (2026-02) — Iteration 7 (Cross-Device Public Status)
 - **User-reported bug FIXED**: "pada status ready for pickup status di halaman publik masih In progress". Root cause: mock DB adalah localStorage-only, sehingga scan QR dari device lain (mis. HP pelanggan) tidak pernah lihat update admin.
 - **Solusi**: Sinkronisasi ringan via FastAPI + MongoDB backend.
