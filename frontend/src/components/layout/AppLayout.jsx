@@ -1,10 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
+import { settingsApi } from '@/lib/store';
 
 export default function AppLayout() {
   const [open, setOpen] = useState(false);
+  const [s, setS] = useState(() => settingsApi.get());
+
+  useEffect(() => {
+    const refresh = () => setS(settingsApi.get());
+    window.addEventListener('kk_settings_changed', refresh);
+    return () => window.removeEventListener('kk_settings_changed', refresh);
+  }, []);
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -33,7 +41,7 @@ export default function AppLayout() {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <div className="font-display font-bold tracking-tight">Klinik Kana</div>
+          <div className="font-display font-bold tracking-tight">{s.shop_name}</div>
           <div className="w-9" />
         </div>
 

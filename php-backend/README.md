@@ -80,7 +80,9 @@ Tambahkan interceptor axios untuk kirim `Authorization: Bearer <token>` di setia
 | GET/POST/PUT/DELETE | /api/spareparts/index.php[?id=]        | admin,technician |
 | GET/POST/PUT/DELETE | /api/repairs/index.php[?id=]           | mixed        |
 | POST/DELETE | /api/repairs/parts.php?id=REPAIR&part_id=PID    | admin,technician |
+| POST/DELETE | /api/repairs/payments.php?id=REPAIR&payment_id=PID | admin,cashier |
 | GET/POST/PUT/DELETE | /api/users/index.php[?id=]             | admin only   |
+| GET/PUT | /api/settings/index.php                            | any/admin    |
 | GET    | /api/dashboard/stats.php                            | any          |
 
 ## Fitur Utama
@@ -90,9 +92,12 @@ Tambahkan interceptor axios untuk kirim `Authorization: Bearer <token>` di setia
 - 👤 **Pelanggan**: CRUD + search + riwayat servis per pelanggan
 - 🛠 **Tiket Servis**: Alur status (Pending → In Progress → Ready → Picked Up), assign teknisi, catatan
 - 📦 **Sparepart**: Stok, harga modal & jual, alert stok rendah, otomatis kurangi stok saat dipakai
-- 📱 **WhatsApp**: Kirim invoice/status via `wa.me` deep-link (tanpa API berbayar)
+- 💰 **Pembayaran**: Catat cicilan/pelunasan multi-metode (Tunai/Transfer/QRIS/E-Wallet), balance otomatis
+- 🧾 **Cetak Invoice**: Format A4 & Thermal 58mm siap-print, dengan QR code untuk scan status
+- ⚙️ **Konfigurasi**: Upload logo toko, edit alamat, template WhatsApp (dengan placeholder), teks footer nota
+- 📱 **WhatsApp**: Kirim invoice/status via `wa.me` deep-link dengan template yang dapat disesuaikan
 - 📈 **Laporan**: Pendapatan vs biaya, estimasi laba, top pelanggan
-- 🎨 **Design**: Swiss high-contrast, Manrope + IBM Plex Sans, fully responsive
+- 🎨 **Design**: Sidebar navy blue, Manrope + IBM Plex Sans, fully responsive
 
 ## Notes
 

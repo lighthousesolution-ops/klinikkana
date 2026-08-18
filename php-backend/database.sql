@@ -84,6 +84,26 @@ CREATE TABLE IF NOT EXISTS `repair_parts` (
   CONSTRAINT `fk_rp_part` FOREIGN KEY (`sparepart_id`) REFERENCES `spareparts`(`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Payments per repair
+CREATE TABLE IF NOT EXISTS `payments` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `repair_id` INT UNSIGNED NOT NULL,
+  `amount` DECIMAL(12,2) NOT NULL,
+  `method` VARCHAR(30) NOT NULL DEFAULT 'Tunai',
+  `note` VARCHAR(255) DEFAULT NULL,
+  `paid_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_pay_repair` (`repair_id`),
+  CONSTRAINT `fk_pay_repair` FOREIGN KEY (`repair_id`) REFERENCES `repairs`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Application settings (single row: id=1, JSON blob)
+CREATE TABLE IF NOT EXISTS `app_settings` (
+  `id` INT UNSIGNED NOT NULL DEFAULT 1,
+  `data` LONGTEXT NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 SET FOREIGN_KEY_CHECKS=1;
 
 -- =====================================================================

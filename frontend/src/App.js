@@ -13,8 +13,10 @@ import CustomersPage from '@/pages/Customers';
 import RepairsPage from '@/pages/Repairs';
 import RepairNew from '@/pages/RepairNew';
 import RepairDetail from '@/pages/RepairDetail';
+import InvoicePage from '@/pages/Invoice';
 import SparePartsPage from '@/pages/SpareParts';
 import UsersPage from '@/pages/Users';
+import SettingsPage from '@/pages/Settings';
 import ReportsPage from '@/pages/Reports';
 
 function App() {
@@ -24,6 +26,11 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+
+            {/* Invoice - outside layout so it prints clean */}
+            <Route path="/repairs/:id/invoice" element={
+              <ProtectedRoute><InvoicePage /></ProtectedRoute>
+            } />
 
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -49,6 +56,10 @@ function App() {
 
               <Route path="/users" element={
                 <ProtectedRoute roles={['admin']}><UsersPage /></ProtectedRoute>
+              } />
+
+              <Route path="/settings" element={
+                <ProtectedRoute roles={['admin']}><SettingsPage /></ProtectedRoute>
               } />
             </Route>
 

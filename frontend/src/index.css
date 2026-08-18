@@ -11,20 +11,27 @@
     --card-foreground: 0 0% 8%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 8%;
-    --primary: 224 100% 33%;
+    --primary: 221 83% 45%;
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 96%;
     --secondary-foreground: 0 0% 12%;
     --muted: 0 0% 95%;
     --muted-foreground: 0 0% 42%;
-    --accent: 224 100% 96%;
-    --accent-foreground: 224 100% 25%;
+    --accent: 221 100% 96%;
+    --accent-foreground: 221 83% 30%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
     --border: 0 0% 89%;
     --input: 0 0% 89%;
-    --ring: 224 100% 33%;
+    --ring: 221 83% 45%;
     --radius: 0.5rem;
+
+    --sidebar-bg: 221 83% 20%;
+    --sidebar-hover: 221 83% 28%;
+    --sidebar-active: 221 90% 55%;
+    --sidebar-fg: 210 40% 96%;
+    --sidebar-muted: 217 33% 70%;
+    --sidebar-border: 221 60% 26%;
 
     --status-pending: 38 92% 50%;
     --status-progress: 217 91% 60%;
@@ -115,4 +122,32 @@ h1, h2, h3, h4, h5, h6, .font-display {
 }
 .animate-fade-in {
     animation: fadeIn 0.4s ease-out both;
+}
+
+/* =============== PRINT STYLES =============== */
+@media print {
+    body { background: #fff !important; }
+    .no-print { display: none !important; }
+    .print-only { display: block !important; }
+    .print-page {
+        margin: 0;
+        padding: 0;
+        box-shadow: none !important;
+        border: none !important;
+    }
+    @page {
+        margin: 12mm;
+    }
+    /* Thermal 58mm */
+    .print-thermal {
+        width: 58mm !important;
+        font-size: 10px !important;
+    }
+    .print-thermal @page {
+        size: 58mm auto;
+        margin: 2mm;
+    }
+}
+@media screen {
+    .print-only { display: none; }
 }

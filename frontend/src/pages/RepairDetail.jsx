@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, MessageCircle, Package, Plus, Trash2, User, Smartphone, ClipboardList, Save, Printer } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Package, Plus, Trash2, User, Smartphone, ClipboardList, Save, Printer, Wallet, FileText } from 'lucide-react';
 import { toast } from 'sonner';
-import { repairsApi, customersApi, sparepartsApi, usersApi, computeTotal } from '@/lib/store';
+import { repairsApi, customersApi, sparepartsApi, usersApi, settingsApi, computeTotal } from '@/lib/store';
 import { STATUS_LABELS, STATUS_ORDER } from '@/lib/mockData';
-import { formatIDR, formatDateTime, waLink } from '@/lib/utils';
+import { formatIDR, formatDateTime, formatDate, waLink, renderTemplate } from '@/lib/utils';
 import StatusBadge from '@/components/StatusBadge';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -29,20 +29,26 @@ export default function RepairDetailPage() {
     notes: repair?.notes || '',
   });
   const [selPart, setSelPart] = useState({ sparepart_id: '', qty: 1 });
+  const [payForm, setPayForm] = useState({ amount: '', method: 'Tunai', note: '' });
+
+  const settings = settingsApi.get();
 
   const waMessage = useMemo(() => {
     if (!repair) return '';
-    const status = STATUS_LABELS[repair.status];
-    return `Halo ${customer?.name || ''}, dari Klinik Kana.\n\n` +
-      `Info servis Anda:\n` +
-      `• Tiket: ${repair.ticket_no}\n` +
-      `• Perangkat: ${repair.device_brand} ${repair.device_model}\n` +
-      `• Status: ${status}\n` +
-      `• Total: ${formatIDR(totals.total)}\n` +
-      `• DP: ${formatIDR(repair.deposit)}\n` +
-      `• Sisa: ${formatIDR(totals.balance)}\n\n` +
-      (repair.status === 'ready' ? 'Perangkat Anda sudah selesai dan siap diambil. Terima kasih!' : 'Terima kasih atas kepercayaan Anda.');
-  }, [repair, customer, totals]);
+    const statusKey = repair.status;
+    const statusMsg = settings[`wa_status_${statusKey}`] || '';
+    return renderTemplate(settings.wa_template || '', {
+      customer_name: customer?.name || '',
+      shop_name: settings.shop_name || '',
+      ticket_no: repair.ticket_no,
+      device: `${repair.device_brand} ${repair.device_model}`,
+      status: STATUS_LABELS[statusKey],
+      total: formatIDR(totals.total),
+      deposit: formatIDR(totals.deposit + totals.payments_total),
+      balance: formatIDR(Math.max(0, totals.balance)),
+      status_message: statusMsg,
+    });
+  }, [repair, customer, totals, settings]);
 
   if (!repair) {
     return (
@@ -91,6 +97,25 @@ export default function RepairDetailPage() {
     }
   };
 
+  const addPayment = () => {
+    const amt = Number(payForm.amount);
+    if (!amt || amt <= 0) return toast.error('Masukkan jumlah yang valid');
+    try {
+      repairsApi.addPayment(id, amt, payForm.method, payForm.note);
+      toast.success(`Pembayaran ${formatIDR(amt)} dicatat`);
+      setPayForm({ amount: '', method: 'Tunai', note: '' });
+      refresh();
+    } catch (err) { toast.error(err.message); }
+  };
+
+  const removePayment = (pid) => {
+    if (window.confirm('Hapus pembayaran ini?')) {
+      repairsApi.removePayment(id, pid);
+      toast.success('Pembayaran dihapus');
+      refresh();
+    }
+  };
+
   const nextStatusIdx = STATUS_ORDER.indexOf(repair.status);
   const nextStatus = nextStatusIdx >= 0 && nextStatusIdx < STATUS_ORDER.length - 1 ? STATUS_ORDER[nextStatusIdx + 1] : null;
 
@@ -116,10 +141,10 @@ export default function RepairDetailPage() {
               className="inline-flex items-center gap-2 h-10 px-4 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors text-sm font-semibold">
               <MessageCircle className="h-4 w-4" /> Kirim WhatsApp
             </a>
-            <button onClick={() => window.print()} data-testid="btn-print"
-              className="inline-flex items-center gap-2 h-10 px-4 rounded-md border border-border hover:bg-accent transition-colors text-sm font-semibold">
-              <Printer className="h-4 w-4" /> Cetak
-            </button>
+            <Link to={`/repairs/${id}/invoice`} data-testid="btn-open-invoice"
+              className="inline-flex items-center gap-2 h-10 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-semibold">
+              <FileText className="h-4 w-4" /> Cetak Nota
+            </Link>
           </div>
         </div>
       </div>
@@ -295,6 +320,81 @@ export default function RepairDetailPage() {
               </div>
             )}
           </div>
+
+          {/* Payments */}
+          <div className="rounded-lg border border-border bg-card p-5" data-testid="payments-section">
+            <div className="flex items-center gap-2 mb-4">
+              <Wallet className="h-4 w-4 text-primary" />
+              <div className="overline text-muted-foreground">Riwayat Pembayaran</div>
+            </div>
+
+            {(hasRole('admin', 'cashier')) && (
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px_1fr_auto] gap-2 mb-4 p-3 bg-muted/40 rounded-md border border-border">
+                <input type="number" min={1} placeholder="Jumlah (Rp)" value={payForm.amount}
+                  onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
+                  data-testid="pay-amount"
+                  className="h-10 px-3 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono" />
+                <select value={payForm.method} onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}
+                  data-testid="pay-method"
+                  className="h-10 px-3 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/40">
+                  <option>Tunai</option>
+                  <option>Transfer</option>
+                  <option>QRIS</option>
+                  <option>E-Wallet</option>
+                  <option>Kartu Debit</option>
+                </select>
+                <input type="text" placeholder="Keterangan (opsional)" value={payForm.note}
+                  onChange={(e) => setPayForm({ ...payForm, note: e.target.value })}
+                  data-testid="pay-note"
+                  className="h-10 px-3 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/40" />
+                <button onClick={addPayment} data-testid="btn-add-payment"
+                  className="inline-flex items-center gap-2 h-10 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-semibold transition-colors">
+                  <Plus className="h-4 w-4" /> Catat
+                </button>
+              </div>
+            )}
+
+            {(repair.payments || []).length === 0 ? (
+              <div className="p-4 text-center text-sm text-muted-foreground">Belum ada pembayaran tercatat.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-xs uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="px-2 py-2 text-left">Tanggal</th>
+                      <th className="px-2 py-2 text-left">Metode</th>
+                      <th className="px-2 py-2 text-left">Keterangan</th>
+                      <th className="px-2 py-2 text-right">Jumlah</th>
+                      <th className="px-2 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {repair.payments.map((p) => (
+                      <tr key={p.id} data-testid={`payment-row-${p.id}`}>
+                        <td className="px-2 py-2 text-xs">{formatDate(p.paid_at)}</td>
+                        <td className="px-2 py-2"><span className="text-xs px-2 py-0.5 rounded-md bg-muted">{p.method}</span></td>
+                        <td className="px-2 py-2 text-muted-foreground text-xs">{p.note || '-'}</td>
+                        <td className="px-2 py-2 text-right font-mono font-semibold">{formatIDR(p.amount)}</td>
+                        <td className="px-2 py-2 text-right">
+                          {hasRole('admin', 'cashier') && (
+                            <button onClick={() => removePayment(p.id)} data-testid={`btn-remove-payment-${p.id}`}
+                              className="h-8 w-8 grid place-items-center rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="bg-muted/40 font-semibold">
+                      <td colSpan={3} className="px-2 py-2 text-right">Total dibayar</td>
+                      <td className="px-2 py-2 text-right font-mono" data-testid="payments-sum">{formatIDR(totals.payments_total)}</td>
+                      <td></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right column: Bill */}
@@ -315,8 +415,14 @@ export default function RepairDetailPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">DP / Uang Muka</span>
-              <span className="font-mono">- {formatIDR(repair.deposit)}</span>
+              <span className="font-mono">- {formatIDR(totals.deposit)}</span>
             </div>
+            {totals.payments_total > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Cicilan/Pelunasan</span>
+                <span className="font-mono">- {formatIDR(totals.payments_total)}</span>
+              </div>
+            )}
             <div className="border-t border-border pt-3 flex justify-between font-bold">
               <span>Sisa Bayar</span>
               <span className={`font-mono text-xl font-display ${totals.balance <= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`} data-testid="bill-balance">

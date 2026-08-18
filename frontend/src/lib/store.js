@@ -9,7 +9,22 @@ const KEYS = {
   spareparts: 'kk_spareparts',
   repairs: 'kk_repairs',
   session: 'kk_session',
+  settings: 'kk_settings',
   seeded: 'kk_seeded_v1',
+};
+
+const DEFAULT_SETTINGS = {
+  shop_name: 'Klinik Kana',
+  shop_tagline: 'Servis HP Profesional',
+  shop_address: 'Jl. Contoh No. 123, Jakarta',
+  shop_phone: '021-1234567 / 0812-3456-7890',
+  logo_url: '',
+  invoice_footer: 'Terima kasih atas kepercayaan Anda.\nGaransi servis 14 hari untuk sparepart yang diganti.',
+  wa_template: 'Halo {customer_name},\n\nDari {shop_name}. Info servis Anda:\n\n• Tiket: {ticket_no}\n• Perangkat: {device}\n• Status: {status}\n• Total: {total}\n• DP: {deposit}\n• Sisa: {balance}\n\n{status_message}\n\nTerima kasih!',
+  wa_status_pending: 'Perangkat Anda telah kami terima dan sedang antre pemeriksaan.',
+  wa_status_in_progress: 'Perangkat Anda sedang dalam proses perbaikan.',
+  wa_status_ready: 'Perangkat Anda sudah selesai dan siap diambil! Silakan datang ke toko kami.',
+  wa_status_picked_up: 'Perangkat Anda sudah diambil. Semoga puas dengan layanan kami!',
 };
 
 function read(key, fallback) {
@@ -33,7 +48,12 @@ export function ensureSeed() {
     write(KEYS.customers, SEED_CUSTOMERS);
     write(KEYS.spareparts, SEED_SPAREPARTS);
     write(KEYS.repairs, SEED_REPAIRS);
+    write(KEYS.settings, DEFAULT_SETTINGS);
     write(KEYS.seeded, '1');
+  }
+  // Backfill settings if it's missing (e.g., upgrading from v1 without settings)
+  if (!localStorage.getItem(KEYS.settings)) {
+    write(KEYS.settings, DEFAULT_SETTINGS);
   }
 }
 
@@ -41,6 +61,18 @@ export function resetData() {
   Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
   ensureSeed();
 }
+
+// ============ SETTINGS ============
+export const settingsApi = {
+  get: () => ({ ...DEFAULT_SETTINGS, ...read(KEYS.settings, {}) }),
+  update: (patch) => {
+    const current = settingsApi.get();
+    const merged = { ...current, ...patch };
+    write(KEYS.settings, merged);
+    return merged;
+  },
+  reset: () => { write(KEYS.settings, DEFAULT_SETTINGS); return DEFAULT_SETTINGS; },
+};
 
 // ============ AUTH ============
 export const authApi = {
@@ -170,6 +202,7 @@ export const repairsApi = {
       ticket_no: nextTicketNo(items),
       status: 'pending',
       parts_used: [],
+      payments: [],
       notes: '',
       technician_id: null,
       service_fee: 0,
@@ -237,12 +270,42 @@ export const repairsApi = {
     const items = read(KEYS.repairs, []).filter((r) => r.id !== id);
     write(KEYS.repairs, items);
   },
+  addPayment: (id, amount, method, note) => {
+    const items = read(KEYS.repairs, []);
+    const idx = items.findIndex((r) => r.id === id);
+    if (idx === -1) throw new Error('Servis tidak ditemukan');
+    const amt = Number(amount);
+    if (!amt || amt <= 0) throw new Error('Jumlah tidak valid');
+    items[idx].payments = items[idx].payments || [];
+    items[idx].payments.push({
+      id: uid('pay'),
+      amount: amt,
+      method: method || 'Tunai',
+      note: note || '',
+      paid_at: new Date().toISOString(),
+    });
+    items[idx].updated_at = new Date().toISOString();
+    write(KEYS.repairs, items);
+    return items[idx];
+  },
+  removePayment: (id, payment_id) => {
+    const items = read(KEYS.repairs, []);
+    const idx = items.findIndex((r) => r.id === id);
+    if (idx === -1) return null;
+    items[idx].payments = (items[idx].payments || []).filter((p) => p.id !== payment_id);
+    items[idx].updated_at = new Date().toISOString();
+    write(KEYS.repairs, items);
+    return items[idx];
+  },
 };
 
-// Helper: compute totals
+// Helper: compute totals with payments
 export function computeTotal(repair) {
   const parts = (repair.parts_used || []).reduce((s, p) => s + p.qty * p.price, 0);
   const total = (repair.service_fee || 0) + parts;
-  const balance = total - (repair.deposit || 0);
-  return { parts_total: parts, total, balance };
+  const deposit = Number(repair.deposit) || 0;
+  const paymentsTotal = (repair.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0);
+  const paid = deposit + paymentsTotal;
+  const balance = total - paid;
+  return { parts_total: parts, total, deposit, payments_total: paymentsTotal, paid, balance };
 }

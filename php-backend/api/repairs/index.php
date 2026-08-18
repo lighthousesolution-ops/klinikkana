@@ -12,6 +12,10 @@ function attach_parts(array &$repair): void {
                             WHERE rp.repair_id = ?');
     $stmt->execute([$repair['id']]);
     $repair['parts_used'] = $stmt->fetchAll();
+
+    $stmt = db()->prepare('SELECT id, amount, method, note, paid_at FROM payments WHERE repair_id = ? ORDER BY paid_at');
+    $stmt->execute([$repair['id']]);
+    $repair['payments'] = $stmt->fetchAll();
 }
 
 function next_ticket_no(): string {

@@ -27,3 +27,10 @@ export function waLink(phone, message) {
   const withCountry = p.startsWith('0') ? '62' + p.slice(1) : p;
   return `https://wa.me/${withCountry}?text=${encodeURIComponent(message)}`;
 }
+
+export function renderTemplate(template, vars) {
+  return Object.keys(vars).reduce(
+    (acc, key) => acc.replaceAll(`{${key}}`, vars[key] ?? ''),
+    template || ''
+  );
+}

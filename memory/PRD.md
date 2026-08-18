@@ -20,20 +20,30 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
-## Implemented (2026-01-18)
+## Implemented (2026-01-18) — Iteration 2
+- Sidebar berwarna navy blue (`--sidebar-bg`), branding dinamis dari settings
+- Halaman **Konfigurasi** (admin only): upload logo (base64), edit nama toko/tagline/alamat/telepon, footer nota, template WhatsApp dengan placeholder ({customer_name}, {shop_name}, {ticket_no}, {device}, {status}, {total}, {deposit}, {balance}, {status_message}), + 4 template pesan status khusus
+- **Cetak Nota**: Halaman `/repairs/:id/invoice` — toggle A4 vs Thermal 58mm, siap print, dengan logo, QR code, info lengkap
+- **QR Code** di invoice A4 & thermal (via `qrcode.react`), berisi JSON ticket_no + id + shop
+- **Riwayat Pembayaran** di RepairDetail: catat cicilan/pelunasan multi-metode (Tunai/Transfer/QRIS/E-Wallet/Kartu), balance auto-update (deposit + payments = paid), tampil di invoice
+- **Konektor PHP** (`/app/frontend/src/lib/apiPhp.js` + `/app/frontend/src/lib/dataMode.js`): axios wrappers untuk semua endpoint PHP, toggle via `REACT_APP_DATA_MODE=local|php` di `.env`
+- PHP backend expanded: endpoint `/api/settings/index.php`, `/api/repairs/payments.php`, tabel `payments` + `app_settings` di schema
+- Fixed: Sidebar & Topbar sekarang auto-refresh saat settings di-save via custom event `kk_settings_changed`
+
+## Implemented (2026-01-18) — Iteration 1
 - Autentikasi & RBAC (admin/teknisi/kasir) dengan protected routes
-- Dashboard: 4 KPI (servis aktif, revenue bulan, servis selesai, sparepart menipis) + revenue bar chart 6 bulan + pie chart status + recent tickets + low stock list
+- Dashboard: 4 KPI + revenue bar chart 6 bulan + pie chart status + recent tickets + low stock list
 - Customer CRUD (search, edit, delete, riwayat servis modal) dengan WhatsApp button
-- Repair tickets: create form (customer, brand, model, IMEI, keluhan, DP, biaya jasa), list dengan filter status & search, detail page dengan status workflow (4-step), teknisi assignment, add/remove sparepart (auto-adjust stock), catatan teknisi, invoice via WhatsApp
+- Repair tickets: create form, list dengan filter status & search, detail page dengan status workflow (4-step), teknisi assignment, add/remove sparepart (auto-adjust stock), catatan teknisi
 - Sparepart CRUD dengan low-stock alert (threshold) & filter
-- User management (admin only) - create/edit/delete role
+- User management (admin only)
 - Reports: revenue vs cost + estimated profit + top customers, range selector 3/6/12 bulan
-- Responsive sidebar (desktop) + hamburger menu (mobile)
+- Responsive sidebar + hamburger menu mobile
 - PHP + MySQL source lengkap di `/app/php-backend/` dengan install.php, README, .htaccess
 
-## Testing Status (iteration_1)
-- 22/22 frontend E2E checks passed (100%)
-- All flows working: auth, RBAC, CRUD operations, status workflow, sparepart deduction, WhatsApp link, mobile responsive
+## Testing Status
+- Iteration 1: 22/22 E2E passed (100%)
+- Iteration 2: 15/15 new features passed (100%)
 
 ## Backlog / Next Actions
 - P1: Konektor axios untuk switch antara localStorage mock ↔ PHP backend endpoint (saat ini masih hardcoded ke localStorage)

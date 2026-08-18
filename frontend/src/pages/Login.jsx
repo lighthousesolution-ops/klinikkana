@@ -3,6 +3,7 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { Smartphone, LogIn, ShieldCheck, Wrench, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { settingsApi } from '@/lib/store';
 
 const DEMO = [
   { role: 'admin', label: 'Admin', icon: ShieldCheck, u: 'admin', p: 'admin123' },
@@ -16,6 +17,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const s = settingsApi.get();
 
   if (user) return <Navigate to="/dashboard" replace />;
 
@@ -50,12 +52,16 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-primary/85 via-primary/70 to-primary/50" />
         <div className="relative h-full flex flex-col justify-between p-12 text-primary-foreground">
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-md bg-white/15 backdrop-blur grid place-items-center border border-white/20">
-              <Smartphone className="h-6 w-6" />
-            </div>
+            {s.logo_url ? (
+              <img src={s.logo_url} alt="Logo" className="h-11 w-11 rounded-md object-contain bg-white/15 border border-white/20 p-1" />
+            ) : (
+              <div className="h-11 w-11 rounded-md bg-white/15 backdrop-blur grid place-items-center border border-white/20">
+                <Smartphone className="h-6 w-6" />
+              </div>
+            )}
             <div>
-              <div className="font-display font-bold text-xl tracking-tight">Klinik Kana</div>
-              <div className="overline text-white/70">Manajemen Servis HP</div>
+              <div className="font-display font-bold text-xl tracking-tight">{s.shop_name}</div>
+              <div className="overline text-white/70">{s.shop_tagline || 'Manajemen Servis HP'}</div>
             </div>
           </div>
 
@@ -86,12 +92,16 @@ export default function LoginPage() {
       <div className="lg:col-span-2 flex items-center justify-center p-6 md:p-10">
         <div className="w-full max-w-md space-y-8 animate-slide-up">
           <div className="lg:hidden flex items-center gap-2.5">
-            <div className="h-10 w-10 rounded-md bg-primary text-primary-foreground grid place-items-center">
-              <Smartphone className="h-5 w-5" />
-            </div>
+            {s.logo_url ? (
+              <img src={s.logo_url} alt="Logo" className="h-10 w-10 rounded-md object-contain" />
+            ) : (
+              <div className="h-10 w-10 rounded-md bg-primary text-primary-foreground grid place-items-center">
+                <Smartphone className="h-5 w-5" />
+              </div>
+            )}
             <div>
-              <div className="font-display font-bold">Klinik Kana</div>
-              <div className="overline text-muted-foreground">Servis HP</div>
+              <div className="font-display font-bold">{s.shop_name}</div>
+              <div className="overline text-muted-foreground">{s.shop_tagline}</div>
             </div>
           </div>
 

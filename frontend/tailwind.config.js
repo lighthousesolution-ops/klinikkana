@@ -35,6 +35,14 @@ module.exports = {
           progress: 'hsl(var(--status-progress))',
           ready: 'hsl(var(--status-ready))',
           picked: 'hsl(var(--status-picked))',
+        },
+        sidebar: {
+          DEFAULT: 'hsl(var(--sidebar-bg))',
+          hover: 'hsl(var(--sidebar-hover))',
+          active: 'hsl(var(--sidebar-active))',
+          fg: 'hsl(var(--sidebar-fg))',
+          muted: 'hsl(var(--sidebar-muted))',
+          border: 'hsl(var(--sidebar-border))',
         }
       },
       keyframes: {
