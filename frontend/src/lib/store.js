@@ -9,6 +9,7 @@ const KEYS = {
   spareparts: 'kk_spareparts',
   repairs: 'kk_repairs',
   branches: 'kk_branches',
+  movements: 'kk_stock_movements',
   currentBranch: 'kk_current_branch',
   session: 'kk_session',
   settings: 'kk_settings',
@@ -221,6 +222,31 @@ export const customersApi = {
   },
 };
 
+// ============ STOCK MOVEMENTS (Mutasi Stok) ============
+// Types: 'in' (restock/adjust up), 'out' (adjust down), 'usage' (dipakai servis),
+//        'return' (dikembalikan dari servis), 'transfer_out', 'transfer_in'
+function logMovement(entry) {
+  const items = read(KEYS.movements, []);
+  items.push({
+    id: uid('mv'),
+    created_at: new Date().toISOString(),
+    ...entry,
+  });
+  write(KEYS.movements, items);
+}
+
+export const movementsApi = {
+  list: () => read(KEYS.movements, []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
+  bySparepart: (sparepart_id) =>
+    read(KEYS.movements, [])
+      .filter((m) => m.sparepart_id === sparepart_id || m.dest_sparepart_id === sparepart_id)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
+  byBranch: (branch_id) =>
+    read(KEYS.movements, [])
+      .filter((m) => m.from_branch_id === branch_id || m.to_branch_id === branch_id)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
+};
+
 // ============ SPARE PARTS ============
 export const sparepartsApi = {
   list: () => read(KEYS.spareparts, []),
@@ -246,13 +272,76 @@ export const sparepartsApi = {
     const items = read(KEYS.spareparts, []).filter((s) => s.id !== id);
     write(KEYS.spareparts, items);
   },
-  adjustStock: (id, delta) => {
+  adjustStock: (id, delta, opts = {}) => {
     const items = read(KEYS.spareparts, []);
     const idx = items.findIndex((s) => s.id === id);
     if (idx !== -1) {
-      items[idx].stock = Math.max(0, items[idx].stock + delta);
+      const before = items[idx].stock;
+      items[idx].stock = Math.max(0, before + delta);
       write(KEYS.spareparts, items);
+      logMovement({
+        type: delta >= 0 ? 'in' : 'out',
+        sparepart_id: id,
+        sparepart_name: items[idx].name,
+        sku: items[idx].sku,
+        from_branch_id: delta < 0 ? items[idx].branch_id : null,
+        to_branch_id: delta >= 0 ? items[idx].branch_id : null,
+        qty: Math.abs(delta),
+        note: opts.note || (delta >= 0 ? 'Penambahan stok manual' : 'Pengurangan stok manual'),
+        user_id: opts.user_id || null,
+      });
     }
+  },
+  transferStock: ({ sparepart_id, to_branch_id, qty, note, user_id }) => {
+    if (!sparepart_id || !to_branch_id) throw new Error('Sparepart dan cabang tujuan wajib');
+    const q = Number(qty);
+    if (!q || q <= 0) throw new Error('Jumlah harus lebih dari 0');
+
+    const items = read(KEYS.spareparts, []);
+    const branches = read(KEYS.branches, []);
+    const srcIdx = items.findIndex((s) => s.id === sparepart_id);
+    if (srcIdx === -1) throw new Error('Sparepart sumber tidak ditemukan');
+    const src = items[srcIdx];
+    if (src.branch_id === to_branch_id) throw new Error('Cabang sumber dan tujuan sama');
+    if (src.stock < q) throw new Error(`Stok tidak cukup (tersedia ${src.stock})`);
+    if (!branches.find((b) => b.id === to_branch_id)) throw new Error('Cabang tujuan tidak valid');
+
+    // Find matching sparepart at destination by SKU
+    let destIdx = items.findIndex((s) => s.sku === src.sku && s.branch_id === to_branch_id);
+    if (destIdx === -1) {
+      // Create new row at destination with same specs
+      const dest = {
+        id: uid('sp'),
+        name: src.name,
+        sku: src.sku,
+        category: src.category,
+        stock: q,
+        cost_price: src.cost_price,
+        selling_price: src.selling_price,
+        low_stock_threshold: src.low_stock_threshold,
+        branch_id: to_branch_id,
+      };
+      items.push(dest);
+      destIdx = items.length - 1;
+    } else {
+      items[destIdx].stock += q;
+    }
+    items[srcIdx].stock -= q;
+    write(KEYS.spareparts, items);
+
+    logMovement({
+      type: 'transfer',
+      sparepart_id: src.id,
+      dest_sparepart_id: items[destIdx].id,
+      sparepart_name: src.name,
+      sku: src.sku,
+      from_branch_id: src.branch_id,
+      to_branch_id,
+      qty: q,
+      note: note || '',
+      user_id: user_id || null,
+    });
+    return { source: items[srcIdx], destination: items[destIdx] };
   },
 };
 
@@ -334,6 +423,17 @@ export const repairsApi = {
     sp.stock -= qty;
     write(KEYS.repairs, items);
     write(KEYS.spareparts, spareparts);
+    logMovement({
+      type: 'usage',
+      sparepart_id,
+      sparepart_name: sp.name,
+      sku: sp.sku,
+      from_branch_id: sp.branch_id,
+      to_branch_id: null,
+      qty,
+      note: `Dipakai untuk tiket ${items[idx].ticket_no}`,
+      repair_id: id,
+    });
     return items[idx];
   },
   removePart: (id, partIndex) => {
@@ -344,7 +444,20 @@ export const repairsApi = {
     const removed = items[idx].parts_used[partIndex];
     if (removed) {
       const sp = spareparts.find((s) => s.id === removed.sparepart_id);
-      if (sp) sp.stock += removed.qty;
+      if (sp) {
+        sp.stock += removed.qty;
+        logMovement({
+          type: 'return',
+          sparepart_id: sp.id,
+          sparepart_name: sp.name,
+          sku: sp.sku,
+          from_branch_id: null,
+          to_branch_id: sp.branch_id,
+          qty: removed.qty,
+          note: `Dikembalikan dari tiket ${items[idx].ticket_no}`,
+          repair_id: id,
+        });
+      }
       items[idx].parts_used.splice(partIndex, 1);
       items[idx].updated_at = new Date().toISOString();
       write(KEYS.repairs, items);
