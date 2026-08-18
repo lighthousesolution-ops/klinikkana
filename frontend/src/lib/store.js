@@ -56,6 +56,13 @@ export function ensureSeed() {
     write(KEYS.branches, SEED_BRANCHES);
     write(KEYS.settings, DEFAULT_SETTINGS);
     write(KEYS.seeded, '1');
+    // Fire cross-device sync for every seeded repair so first-time public
+    // status page hits get real data. Use only-if-new to avoid clobbering
+    // any admin edits already stored on the server (important when the
+    // localStorage on THIS device gets cleared / rehydrated later).
+    import('./publicSync').then((m) => {
+      SEED_REPAIRS.forEach((r) => m.syncRepairPublic(r, { onlyIfNew: true }));
+    }).catch(() => {});
   }
   // Backfill
   if (!localStorage.getItem(KEYS.settings)) {
@@ -357,6 +364,13 @@ function nextTicketNo(existing) {
   return `${prefix}${String(next).padStart(3, '0')}`;
 }
 
+// Push repair snapshot to backend so QR-scanned public page is cross-device.
+// Uses dynamic import to avoid a circular dependency with publicSync.js.
+function fireSync(repair) {
+  if (!repair?.ticket_no) return;
+  import('./publicSync').then((m) => m.syncRepairPublic(repair)).catch(() => {});
+}
+
 export const repairsApi = {
   list: () => read(KEYS.repairs, []),
   get: (id) => read(KEYS.repairs, []).find((r) => r.id === id),
@@ -388,6 +402,7 @@ export const repairsApi = {
     };
     items.push(item);
     write(KEYS.repairs, items);
+    fireSync(item);
     return item;
   },
   update: (id, data) => {
@@ -396,6 +411,7 @@ export const repairsApi = {
     if (idx === -1) throw new Error('Servis tidak ditemukan');
     items[idx] = { ...items[idx], ...data, updated_at: new Date().toISOString() };
     write(KEYS.repairs, items);
+    fireSync(items[idx]);
     return items[idx];
   },
   changeStatus: (id, status) => {
@@ -407,6 +423,7 @@ export const repairsApi = {
     if (status === 'ready') items[idx].completed_at = now;
     if (status === 'picked_up') items[idx].picked_up_at = now;
     write(KEYS.repairs, items);
+    fireSync(items[idx]);
     return items[idx];
   },
   addPart: (id, sparepart_id, qty) => {
@@ -434,6 +451,7 @@ export const repairsApi = {
       note: `Dipakai untuk tiket ${items[idx].ticket_no}`,
       repair_id: id,
     });
+    fireSync(items[idx]);
     return items[idx];
   },
   removePart: (id, partIndex) => {
@@ -462,6 +480,7 @@ export const repairsApi = {
       items[idx].updated_at = new Date().toISOString();
       write(KEYS.repairs, items);
       write(KEYS.spareparts, spareparts);
+      fireSync(items[idx]);
     }
     return items[idx];
   },
@@ -485,6 +504,7 @@ export const repairsApi = {
     });
     items[idx].updated_at = new Date().toISOString();
     write(KEYS.repairs, items);
+    fireSync(items[idx]);
     return items[idx];
   },
   removePayment: (id, payment_id) => {
@@ -494,6 +514,7 @@ export const repairsApi = {
     items[idx].payments = (items[idx].payments || []).filter((p) => p.id !== payment_id);
     items[idx].updated_at = new Date().toISOString();
     write(KEYS.repairs, items);
+    fireSync(items[idx]);
     return items[idx];
   },
   addRating: (id, rating, review) => {
@@ -509,6 +530,7 @@ export const repairsApi = {
     items[idx].rated_at = new Date().toISOString();
     items[idx].updated_at = items[idx].rated_at;
     write(KEYS.repairs, items);
+    fireSync(items[idx]);
     return items[idx];
   },
   addRatingByTicket: (ticket_no, rating, review) => {
@@ -530,6 +552,7 @@ export const repairsApi = {
     items[idx].admin_reply_at = new Date().toISOString();
     items[idx].updated_at = items[idx].admin_reply_at;
     write(KEYS.repairs, items);
+    fireSync(items[idx]);
     return items[idx];
   },
   deleteReply: (id) => {
@@ -541,6 +564,7 @@ export const repairsApi = {
     delete items[idx].admin_reply_at;
     items[idx].updated_at = new Date().toISOString();
     write(KEYS.repairs, items);
+    fireSync(items[idx]);
     return items[idx];
   },
   withReviews: () => read(KEYS.repairs, []).filter((r) => r.rating && r.rating >= 1),

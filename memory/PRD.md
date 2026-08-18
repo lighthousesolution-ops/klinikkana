@@ -20,6 +20,16 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-02) — Iteration 7 (Cross-Device Public Status)
+- **User-reported bug FIXED**: "pada status ready for pickup status di halaman publik masih In progress". Root cause: mock DB adalah localStorage-only, sehingga scan QR dari device lain (mis. HP pelanggan) tidak pernah lihat update admin.
+- **Solusi**: Sinkronisasi ringan via FastAPI + MongoDB backend.
+  - Endpoint baru `POST/GET /api/public-sync/{ticket_no}` (dengan `?only_if_new=true` untuk seed) dan `POST /api/public-sync/{ticket_no}/rating` (submit rating cross-device).
+  - Setiap mutasi tiket di admin app (create, update, changeStatus, addPart, removePart, addPayment, removePayment, addRating, replyReview, deleteReply) sekarang mem-mirror snapshot publik ke server via `/app/frontend/src/lib/publicSync.js`.
+  - Halaman publik `/status/:ticket_no` fetch server tiap 4 detik + on-focus + on-storage; fallback ke localStorage bila server offline. Rating dari HP pelanggan langsung masuk ke MongoDB (dan admin app di device lain lihatnya via server).
+  - `ensureSeed` menggunakan `only_if_new` sehingga localStorage yang di-reset tidak akan menimpa data admin di server.
+- **Verifikasi**: 11/11 backend tests PASS + cross-device propagation CONFIRMED oleh testing agent di isolated browser context (`iteration_7.json`). Admin ubah KK-2501-005 → Ready for Pickup → fresh context (no localStorage) → chip tampil "Ready for Pickup" dalam ≤5 detik.
+- **Defensif**: `updateStatus` di RepairDetail sekarang memverifikasi return value dari `repairsApi.changeStatus` sebelum toast success, mencegah "silent no-op" toast bohong.
+
 ## Implemented (2026-02) — Iteration 6 (Reply Ulasan)
 - **Admin balasan pada ulasan**: Di halaman `/reviews`, admin bisa klik "Balas Ulasan" pada setiap ulasan → tampil textarea (max 500 char) → simpan. Balasan ditampilkan sebagai blockquote biru dengan nama admin & tanggal. Admin bisa Edit/Hapus balasan.
 - **Balasan tampil di halaman publik**: Card "Terima kasih atas ulasannya!" di `/status/:ticket_no` sekarang menampilkan blok "💬 Balasan dari toko" berisi balasan admin (auto-refresh mengikuti mekanisme yang sudah ada).

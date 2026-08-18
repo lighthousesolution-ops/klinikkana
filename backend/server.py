@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,7 +6,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 
@@ -65,6 +65,108 @@ async def get_status_checks():
             check['timestamp'] = datetime.fromisoformat(check['timestamp'])
     
     return status_checks
+
+
+# ============================================================
+# PUBLIC REPAIR STATUS SYNC
+# Enables the customer-facing /status/:ticket_no page to see a
+# shared view of the repair regardless of which device scanned
+# the QR. Admins push a snapshot on every mutation; public page
+# reads it back. This co-exists with the localStorage mock: the
+# frontend still uses localStorage as the primary admin store,
+# and simply mirrors public-facing fields here.
+# ============================================================
+
+class PublicRepairSnapshot(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    ticket_no: str = ""
+    status: str = "pending"
+    device_brand: str = ""
+    device_model: str = ""
+    serial_no: Optional[str] = None
+    complaint: str = ""
+    customer_name: str = ""
+    customer_phone: str = ""
+    technician_name: Optional[str] = None
+    created_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    picked_up_at: Optional[str] = None
+    total: float = 0
+    paid: float = 0
+    balance: float = 0
+    rating: Optional[int] = None
+    review: Optional[str] = None
+    rated_at: Optional[str] = None
+    admin_reply: Optional[str] = None
+    admin_reply_by_name: Optional[str] = None
+    admin_reply_at: Optional[str] = None
+    shop: Optional[dict] = None
+    updated_at: Optional[str] = None
+
+
+@api_router.post("/public-sync/{ticket_no}")
+async def sync_public_repair(ticket_no: str, payload: PublicRepairSnapshot, only_if_new: bool = False):
+    doc = payload.model_dump()
+    doc["ticket_no"] = ticket_no
+    doc["synced_at"] = datetime.now(timezone.utc).isoformat()
+    if only_if_new:
+        # Seed path: only insert when the ticket has never been synced.
+        # Prevents a client that re-seeds its localStorage from overwriting
+        # admin edits already stored on the server.
+        result = await db.public_repairs.update_one(
+            {"ticket_no": ticket_no},
+            {"$setOnInsert": doc},
+            upsert=True,
+        )
+        return {"success": True, "inserted": bool(result.upserted_id), "synced_at": doc["synced_at"]}
+    await db.public_repairs.update_one(
+        {"ticket_no": ticket_no},
+        {"$set": doc},
+        upsert=True,
+    )
+    return {"success": True, "synced_at": doc["synced_at"]}
+
+
+@api_router.get("/public-sync/{ticket_no}")
+async def get_public_repair(ticket_no: str):
+    doc = await db.public_repairs.find_one({"ticket_no": ticket_no}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="not_found")
+    return doc
+
+
+class PublicRatingIn(BaseModel):
+    rating: int
+    review: Optional[str] = ""
+
+
+@api_router.post("/public-sync/{ticket_no}/rating")
+async def submit_public_rating(ticket_no: str, payload: PublicRatingIn):
+    if payload.rating < 1 or payload.rating > 5:
+        raise HTTPException(status_code=400, detail="rating_out_of_range")
+    review = (payload.review or "").strip()
+    if len(review) > 500:
+        raise HTTPException(status_code=400, detail="review_too_long")
+
+    existing = await db.public_repairs.find_one({"ticket_no": ticket_no})
+    if not existing:
+        raise HTTPException(status_code=404, detail="not_found")
+    if existing.get("status") != "picked_up":
+        raise HTTPException(status_code=400, detail="status_not_picked_up")
+    if existing.get("rating"):
+        raise HTTPException(status_code=409, detail="already_rated")
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.public_repairs.update_one(
+        {"ticket_no": ticket_no},
+        {"$set": {
+            "rating": payload.rating,
+            "review": review,
+            "rated_at": now,
+            "updated_at": now,
+        }},
+    )
+    return {"success": True, "rating": payload.rating, "review": review, "rated_at": now}
 
 # Include the router in the main app
 app.include_router(api_router)

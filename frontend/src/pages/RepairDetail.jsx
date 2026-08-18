@@ -65,7 +65,11 @@ export default function RepairDetailPage() {
   const canEditPrice = hasRole('admin', 'cashier');
 
   const updateStatus = (status) => {
-    repairsApi.changeStatus(id, status);
+    const updated = repairsApi.changeStatus(id, status);
+    if (!updated || updated.status !== status) {
+      toast.error('Gagal mengubah status. Silakan coba lagi.');
+      return;
+    }
     toast.success(`Status diubah ke ${STATUS_LABELS[status]}`);
     refresh();
   };

@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { CheckCircle2, Clock, PackageCheck, Home, Smartphone, Phone, MapPin, MessageCircle, Search, AlertCircle, RefreshCw, Star, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { repairsApi, customersApi, usersApi, settingsApi, computeTotal, ensureSeed } from '@/lib/store';
+import { fetchPublicRepair, submitPublicRating } from '@/lib/publicSync';
 import { STATUS_LABELS, STATUS_ORDER } from '@/lib/mockData';
 import { formatIDR, formatDate, waLink } from '@/lib/utils';
 
@@ -51,45 +52,125 @@ export default function PublicStatusPage() {
   const { ticket_no } = useParams();
   ensureSeed();
 
-  // Reactive tick — re-reads localStorage on interval, storage events, and tab focus.
+  // Server-authoritative snapshot (works across devices).
+  // Falls back to localStorage if the server is unavailable.
+  const [serverData, setServerData] = useState(null);
+  const [serverTried, setServerTried] = useState(false);
   const [tick, setTick] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      const data = await fetchPublicRepair(ticket_no);
+      if (mounted) {
+        setServerData(data);
+        setServerTried(true);
+      }
+    };
+    load();
+    // Poll every 4s so status changes propagate across devices.
+    const interval = setInterval(load, 4000);
+    // Cross-tab sync (same browser).
     const bump = () => setTick((t) => t + 1);
-    // Poll every 4s so the page reflects backend status changes without user action.
-    const interval = setInterval(bump, 4000);
-    // Cross-tab sync (same browser, different tab).
     window.addEventListener('storage', bump);
-    // Refresh when tab regains focus (e.g. customer switches back from another app).
-    const onVisible = () => { if (document.visibilityState === 'visible') bump(); };
+    // Also reload on focus / tab-visible for snappy UX after unlocking phone.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        load();
+        bump();
+      }
+    };
     document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', bump);
+    window.addEventListener('focus', load);
     return () => {
+      mounted = false;
       clearInterval(interval);
       window.removeEventListener('storage', bump);
       document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', bump);
+      window.removeEventListener('focus', load);
     };
-  }, []);
+  }, [ticket_no]);
 
-  const manualRefresh = () => {
+  const manualRefresh = async () => {
     setRefreshing(true);
+    const data = await fetchPublicRepair(ticket_no);
+    setServerData(data);
     setTick((t) => t + 1);
-    setTimeout(() => setRefreshing(false), 500);
+    setTimeout(() => setRefreshing(false), 400);
   };
 
-  // Re-read every render (tick is dependency of downstream memos indirectly).
+  // Local fallback (for same-device admin view).
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const repair = useMemo(() => repairsApi.getByTicket(ticket_no), [ticket_no, tick]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const customer = useMemo(() => (repair ? customersApi.get(repair.customer_id) : null), [repair?.id, tick]);
+  const localRepair = useMemo(() => repairsApi.getByTicket(ticket_no), [ticket_no, tick]);
+
+  // Prefer server data; fall back to local mock. Normalise into a single shape
+  // used by the rest of the page.
+  const repair = useMemo(() => {
+    if (serverData) {
+      return {
+        ...localRepair, // keep id for local rating persistence
+        ticket_no: serverData.ticket_no,
+        status: serverData.status,
+        device_brand: serverData.device_brand,
+        device_model: serverData.device_model,
+        serial_no: serverData.serial_no,
+        complaint: serverData.complaint,
+        technician_name: serverData.technician_name,
+        created_at: serverData.created_at,
+        completed_at: serverData.completed_at,
+        picked_up_at: serverData.picked_up_at,
+        rating: serverData.rating,
+        review: serverData.review,
+        rated_at: serverData.rated_at,
+        admin_reply: serverData.admin_reply,
+        admin_reply_by_name: serverData.admin_reply_by_name,
+        admin_reply_at: serverData.admin_reply_at,
+        __fromServer: true,
+      };
+    }
+    return localRepair;
+  }, [serverData, localRepair]);
+
+  // Totals: use server-provided totals if available, else compute locally.
+  const totals = useMemo(() => {
+    if (serverData) {
+      return {
+        total: Number(serverData.total) || 0,
+        paid: Number(serverData.paid) || 0,
+        balance: Number(serverData.balance) || 0,
+      };
+    }
+    return localRepair ? computeTotal(localRepair) : { total: 0, paid: 0, balance: 0 };
+  }, [serverData, localRepair]);
+
+  // Customer & shop: from server snapshot when present, else from local store.
+  const customer = useMemo(() => {
+    if (serverData) return { name: serverData.customer_name, phone: serverData.customer_phone };
+    return localRepair ? customersApi.get(localRepair.customer_id) : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverData, localRepair, tick]);
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const users = useMemo(() => usersApi.list(), [tick]);
-  const technician = repair?.technician_id ? users.find((u) => u.id === repair.technician_id) : null;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const settings = useMemo(() => settingsApi.get(), [tick]);
-  const totals = repair ? computeTotal(repair) : null;
+  const technician = useMemo(() => {
+    if (serverData?.technician_name) return { full_name: serverData.technician_name };
+    return localRepair?.technician_id ? users.find((u) => u.id === localRepair.technician_id) : null;
+  }, [serverData, localRepair, users]);
+
+  const settings = useMemo(() => {
+    if (serverData?.shop) {
+      return {
+        shop_name: serverData.shop.name,
+        shop_tagline: serverData.shop.tagline,
+        shop_address: serverData.shop.address,
+        shop_phone: serverData.shop.phone,
+        logo_url: serverData.shop.logo_url,
+      };
+    }
+    return settingsApi.get();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverData, tick]);
 
   const timeline = useMemo(() => {
     if (!repair) return [];
@@ -103,7 +184,7 @@ export default function PublicStatusPage() {
     }));
   }, [repair]);
 
-  if (!repair) {
+  if (!repair && serverTried) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex flex-col">
         <PublicHeader settings={settings} onRefresh={manualRefresh} refreshing={refreshing} />
@@ -122,6 +203,21 @@ export default function PublicStatusPage() {
               className="inline-flex items-center gap-2 h-11 px-5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 font-semibold text-sm transition-colors">
               <MessageCircle className="h-4 w-4" /> Hubungi Kami via WhatsApp
             </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!repair) {
+    // Server call still pending on first render — show a light skeleton.
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background">
+        <PublicHeader settings={settings} onRefresh={manualRefresh} refreshing={refreshing} />
+        <div className="max-w-2xl mx-auto px-4 py-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-32 rounded-xl bg-muted" />
+            <div className="h-48 rounded-lg bg-muted" />
           </div>
         </div>
       </div>
@@ -366,18 +462,27 @@ function RatingSection({ repair, onSubmitted }) {
     );
   }
 
-  const submit = () => {
+  const submit = async () => {
     if (!rating) {
       toast.error('Pilih rating bintang terlebih dahulu');
       return;
     }
     setSubmitting(true);
     try {
-      repairsApi.addRating(repair.id, rating, review);
+      // Cross-device: submit to server. Also mirror to localStorage if we have
+      // the local repair id (so admin app on same browser sees it instantly).
+      await submitPublicRating(repair.ticket_no, rating, review);
+      if (repair.id) {
+        try { repairsApi.addRating(repair.id, rating, review); } catch (_) {}
+      }
       toast.success('Terima kasih! Ulasan Anda telah dikirim.');
       onSubmitted?.();
     } catch (err) {
-      toast.error(err.message || 'Gagal mengirim ulasan');
+      const code = err?.response?.data?.detail;
+      if (code === 'already_rated') toast.error('Ulasan sudah pernah dikirim untuk tiket ini');
+      else if (code === 'status_not_picked_up') toast.error('Rating hanya bisa diberikan setelah perangkat diambil');
+      else if (code === 'not_found') toast.error('Tiket tidak ditemukan di server');
+      else toast.error(err.message || 'Gagal mengirim ulasan');
     } finally {
       setSubmitting(false);
     }
