@@ -1,16 +1,18 @@
 // LocalStorage-based data store for immediate browser testing.
 // Mimics a REST API so switching to the PHP backend later is trivial.
 
-import { SEED_USERS, SEED_CUSTOMERS, SEED_SPAREPARTS, SEED_REPAIRS } from './mockData';
+import { SEED_USERS, SEED_CUSTOMERS, SEED_SPAREPARTS, SEED_REPAIRS, SEED_BRANCHES } from './mockData';
 
 const KEYS = {
   users: 'kk_users',
   customers: 'kk_customers',
   spareparts: 'kk_spareparts',
   repairs: 'kk_repairs',
+  branches: 'kk_branches',
+  currentBranch: 'kk_current_branch',
   session: 'kk_session',
   settings: 'kk_settings',
-  seeded: 'kk_seeded_v1',
+  seeded: 'kk_seeded_v2',
 };
 
 const DEFAULT_SETTINGS = {
@@ -44,16 +46,22 @@ function uid(prefix = 'id') {
 
 export function ensureSeed() {
   if (!localStorage.getItem(KEYS.seeded)) {
+    // Clear previous version's keys to avoid mixing schemas
+    ['kk_seeded_v1'].forEach((k) => localStorage.removeItem(k));
     write(KEYS.users, SEED_USERS);
     write(KEYS.customers, SEED_CUSTOMERS);
     write(KEYS.spareparts, SEED_SPAREPARTS);
     write(KEYS.repairs, SEED_REPAIRS);
+    write(KEYS.branches, SEED_BRANCHES);
     write(KEYS.settings, DEFAULT_SETTINGS);
     write(KEYS.seeded, '1');
   }
-  // Backfill settings if it's missing (e.g., upgrading from v1 without settings)
+  // Backfill
   if (!localStorage.getItem(KEYS.settings)) {
     write(KEYS.settings, DEFAULT_SETTINGS);
+  }
+  if (!localStorage.getItem(KEYS.branches)) {
+    write(KEYS.branches, SEED_BRANCHES);
   }
 }
 
@@ -61,6 +69,53 @@ export function resetData() {
   Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
   ensureSeed();
 }
+
+// ============ BRANCHES (Multi Cabang) ============
+function fireBranchMutation() {
+  window.dispatchEvent(new Event('kk_branch_changed'));
+}
+
+export const branchesApi = {
+  list: () => read(KEYS.branches, []),
+  get: (id) => read(KEYS.branches, []).find((b) => b.id === id),
+  create: (data) => {
+    const items = read(KEYS.branches, []);
+    if (items.some((b) => b.code === data.code)) throw new Error('Kode cabang sudah dipakai');
+    const item = { id: uid('br'), created_at: new Date().toISOString(), is_default: false, ...data };
+    items.push(item);
+    write(KEYS.branches, items);
+    fireBranchMutation();
+    return item;
+  },
+  update: (id, data) => {
+    const items = read(KEYS.branches, []);
+    const idx = items.findIndex((b) => b.id === id);
+    if (idx === -1) throw new Error('Cabang tidak ditemukan');
+    items[idx] = { ...items[idx], ...data };
+    write(KEYS.branches, items);
+    fireBranchMutation();
+    return items[idx];
+  },
+  delete: (id) => {
+    const items = read(KEYS.branches, []);
+    const target = items.find((b) => b.id === id);
+    if (target?.is_default) throw new Error('Cabang default tidak dapat dihapus');
+    const hasCustomers = read(KEYS.customers, []).some((c) => c.branch_id === id);
+    const hasRepairs = read(KEYS.repairs, []).some((r) => r.branch_id === id);
+    const hasParts = read(KEYS.spareparts, []).some((s) => s.branch_id === id);
+    if (hasCustomers || hasRepairs || hasParts) {
+      throw new Error('Cabang masih memiliki data (pelanggan/tiket/sparepart). Pindahkan atau hapus dulu.');
+    }
+    write(KEYS.branches, items.filter((b) => b.id !== id));
+    fireBranchMutation();
+  },
+  setCurrent: (id) => {
+    if (id === null || id === 'all') localStorage.removeItem(KEYS.currentBranch);
+    else localStorage.setItem(KEYS.currentBranch, id);
+    fireBranchMutation();
+  },
+  getCurrent: () => localStorage.getItem(KEYS.currentBranch) || null,
+};
 
 // ============ SETTINGS ============
 export const settingsApi = {
@@ -126,7 +181,8 @@ export const customersApi = {
   get: (id) => read(KEYS.customers, []).find((c) => c.id === id),
   create: (data) => {
     const customers = read(KEYS.customers, []);
-    const item = { id: uid('c'), created_at: new Date().toISOString(), ...data };
+    const branch_id = data.branch_id || branchesApi.getCurrent() || (branchesApi.list().find((b) => b.is_default)?.id) || null;
+    const item = { id: uid('c'), created_at: new Date().toISOString(), branch_id, ...data };
     customers.push(item);
     write(KEYS.customers, customers);
     return item;
@@ -152,7 +208,8 @@ export const sparepartsApi = {
   create: (data) => {
     const items = read(KEYS.spareparts, []);
     if (items.some((s) => s.sku === data.sku)) throw new Error('SKU sudah dipakai');
-    const item = { id: uid('sp'), ...data };
+    const branch_id = data.branch_id || branchesApi.getCurrent() || (branchesApi.list().find((b) => b.is_default)?.id) || null;
+    const item = { id: uid('sp'), branch_id, ...data };
     items.push(item);
     write(KEYS.spareparts, items);
     return item;
@@ -198,6 +255,13 @@ export const repairsApi = {
   byCustomer: (customer_id) => read(KEYS.repairs, []).filter((r) => r.customer_id === customer_id),
   create: (data) => {
     const items = read(KEYS.repairs, []);
+    // Inherit branch from customer, fallback to current/default
+    let branch_id = data.branch_id;
+    if (!branch_id && data.customer_id) {
+      const customers = read(KEYS.customers, []);
+      const cust = customers.find((c) => c.id === data.customer_id);
+      branch_id = cust?.branch_id || branchesApi.getCurrent() || (branchesApi.list().find((b) => b.is_default)?.id) || null;
+    }
     const item = {
       id: uid('r'),
       ticket_no: nextTicketNo(items),
@@ -208,6 +272,7 @@ export const repairsApi = {
       technician_id: null,
       service_fee: 0,
       deposit: 0,
+      branch_id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       ...data,

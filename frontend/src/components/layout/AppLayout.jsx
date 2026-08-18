@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
+import BranchSelector from '@/components/BranchSelector';
 import { settingsApi } from '@/lib/store';
 
 export default function AppLayout() {
@@ -32,17 +33,21 @@ export default function AppLayout() {
       )}
 
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Mobile topbar */}
-        <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 h-14 border-b border-border bg-card">
-          <button
-            onClick={() => setOpen(true)}
-            data-testid="btn-open-sidebar"
-            className="h-9 w-9 grid place-items-center rounded-md hover:bg-accent"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <div className="font-display font-bold tracking-tight">{s.shop_name}</div>
-          <div className="w-9" />
+        {/* Top bar (all viewports) */}
+        <div className="sticky top-0 z-30 flex items-center justify-between px-4 h-14 border-b border-border bg-card/90 backdrop-blur-sm">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setOpen(true)}
+              data-testid="btn-open-sidebar"
+              className="lg:hidden h-9 w-9 grid place-items-center rounded-md hover:bg-accent"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <div className="lg:hidden font-display font-bold tracking-tight">{s.shop_name}</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <BranchSelector />
+          </div>
         </div>
 
         <main className="flex-1 p-4 md:p-6 lg:p-8">

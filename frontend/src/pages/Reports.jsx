@@ -1,13 +1,27 @@
 import React, { useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
-import { repairsApi, customersApi, sparepartsApi, computeTotal } from '@/lib/store';
+import { repairsApi, customersApi, sparepartsApi, branchesApi, computeTotal } from '@/lib/store';
 import { formatIDR, formatDate } from '@/lib/utils';
+import { useBranch } from '@/contexts/BranchContext';
 
 export default function ReportsPage() {
   const [range, setRange] = useState(6); // months
-  const repairs = repairsApi.list();
+  const { scope, currentBranch } = useBranch();
+  const repairs = scope(repairsApi.list());
   const customers = customersApi.list();
   const spareparts = sparepartsApi.list();
+  const branches = branchesApi.list();
+
+  // Per-branch breakdown (only when viewing all branches)
+  const branchBreakdown = React.useMemo(() => {
+    if (currentBranch) return [];
+    const allRepairs = repairsApi.list();
+    return branches.map((b) => {
+      const items = allRepairs.filter((r) => r.branch_id === b.id && r.status === 'picked_up');
+      const revenue = items.reduce((s, r) => s + computeTotal(r).total, 0);
+      return { branch: b, tickets: items.length, revenue };
+    }).sort((a, b) => b.revenue - a.revenue);
+  }, [branches, currentBranch]);
 
   const monthly = useMemo(() => {
     const arr = [];
@@ -59,7 +73,9 @@ export default function ReportsPage() {
         <div>
           <div className="overline text-muted-foreground mb-1">Analitik</div>
           <h1 className="title-box font-display text-3xl font-bold tracking-tight">Laporan Keuangan</h1>
-          <p className="text-muted-foreground text-sm mt-1">Ringkasan {range} bulan terakhir</p>
+          <p className="text-muted-foreground text-sm mt-2">
+            {currentBranch ? currentBranch.name : 'Gabungan semua cabang'} — {range} bulan terakhir
+          </p>
         </div>
         <div className="flex gap-1 p-1 rounded-md border border-border bg-card">
           {[3, 6, 12].map((n) => (
@@ -113,7 +129,44 @@ export default function ReportsPage() {
         </ResponsiveContainer>
       </div>
 
+      {!currentBranch && branchBreakdown.length > 0 && (
+        <div className="rounded-lg border border-border bg-card p-5" data-testid="branch-breakdown">
+          <div className="mb-4">
+            <div className="overline">Per Cabang</div>
+            <h3 className="font-display text-lg font-semibold tracking-tight">Kontribusi Cabang</h3>
+          </div>
+          <div className="space-y-3">
+            {branchBreakdown.map((b, i) => {
+              const maxRev = branchBreakdown[0]?.revenue || 1;
+              const pct = maxRev > 0 ? (b.revenue / maxRev) * 100 : 0;
+              return (
+                <div key={b.branch.id} data-testid={`branch-row-${b.branch.id}`}>
+                  <div className="flex items-center justify-between text-sm mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="h-6 w-6 rounded-md bg-accent grid place-items-center font-display font-bold text-[11px]">{i + 1}</div>
+                      <span className="font-semibold">{b.branch.name}</span>
+                      <span className="font-mono text-[10px] text-muted-foreground uppercase">{b.branch.code}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-muted-foreground text-xs">{b.tickets} tiket</span>
+                      <span className="font-mono font-semibold">{formatIDR(b.revenue)}</span>
+                    </div>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="rounded-lg border border-border bg-card p-5" data-testid="top-customers">
+        <div className="mb-4">
+          <div className="overline">Loyalitas</div>
+          <h3 className="font-display text-lg font-semibold tracking-tight">Pelanggan Teratas</h3>
+        </div>
         <div className="mb-4">
           <div className="overline text-muted-foreground">Loyalitas</div>
           <h3 className="font-display text-lg font-semibold tracking-tight">Pelanggan Teratas</h3>

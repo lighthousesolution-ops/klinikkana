@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import '@/App.css';
 
 import { AuthProvider } from '@/contexts/AuthContext';
+import { BranchProvider } from '@/contexts/BranchContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AppLayout from '@/components/layout/AppLayout';
 
@@ -17,6 +18,7 @@ import InvoicePage from '@/pages/Invoice';
 import PublicStatusPage from '@/pages/PublicStatus';
 import SparePartsPage from '@/pages/SpareParts';
 import UsersPage from '@/pages/Users';
+import BranchesPage from '@/pages/Branches';
 import SettingsPage from '@/pages/Settings';
 import ReportsPage from '@/pages/Reports';
 
@@ -24,7 +26,8 @@ function App() {
   return (
     <div className="App">
       <AuthProvider>
-        <BrowserRouter>
+        <BranchProvider>
+          <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
 
@@ -62,6 +65,10 @@ function App() {
                 <ProtectedRoute roles={['admin']}><UsersPage /></ProtectedRoute>
               } />
 
+              <Route path="/branches" element={
+                <ProtectedRoute roles={['admin']}><BranchesPage /></ProtectedRoute>
+              } />
+
               <Route path="/settings" element={
                 <ProtectedRoute roles={['admin']}><SettingsPage /></ProtectedRoute>
               } />
@@ -71,6 +78,7 @@ function App() {
           </Routes>
         </BrowserRouter>
         <Toaster position="bottom-right" richColors closeButton />
+        </BranchProvider>
       </AuthProvider>
     </div>
   );

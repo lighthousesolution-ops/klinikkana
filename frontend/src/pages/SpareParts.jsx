@@ -3,6 +3,7 @@ import { Plus, Search, Pencil, Trash2, X, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { sparepartsApi } from '@/lib/store';
 import { formatIDR } from '@/lib/utils';
+import { useBranch } from '@/contexts/BranchContext';
 
 const CATEGORIES = ['Layar', 'Baterai', 'Konektor', 'Speaker', 'Fleksibel', 'Aksesoris', 'IC', 'Lainnya'];
 
@@ -90,8 +91,9 @@ export default function SparePartsPage() {
   const [q, setQ] = useState('');
   const [modal, setModal] = useState({ open: false, initial: null });
   const [showLowOnly, setShowLowOnly] = useState(false);
+  const { scope, currentBranch } = useBranch();
 
-  const items = sparepartsApi.list();
+  const items = scope(sparepartsApi.list());
   const filtered = items
     .filter((s) => !showLowOnly || s.stock <= s.low_stock_threshold)
     .filter((s) => !q || s.name.toLowerCase().includes(q.toLowerCase()) || s.sku.toLowerCase().includes(q.toLowerCase()));
@@ -112,8 +114,8 @@ export default function SparePartsPage() {
         <div>
           <div className="overline text-muted-foreground mb-1">Inventori</div>
           <h1 className="title-box font-display text-3xl font-bold tracking-tight">Sparepart</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {items.length} item • {lowCount > 0 && <span className="text-amber-600 dark:text-amber-400 font-medium">{lowCount} stok menipis</span>}
+          <p className="text-muted-foreground text-sm mt-2">
+            {items.length} item{currentBranch ? ` di ${currentBranch.name}` : ' (semua cabang)'} • {lowCount > 0 && <span className="text-amber-600 dark:text-amber-400 font-medium">{lowCount} stok menipis</span>}
           </p>
         </div>
         <button onClick={() => setModal({ open: true, initial: null })} data-testid="btn-new-part"

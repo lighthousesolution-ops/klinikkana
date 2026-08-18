@@ -4,6 +4,7 @@ import { Wrench, DollarSign, CheckCircle2, AlertTriangle, Plus, ArrowRight, Pack
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { repairsApi, sparepartsApi, customersApi, computeTotal } from '@/lib/store';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBranch } from '@/contexts/BranchContext';
 import { formatIDR } from '@/lib/utils';
 import StatusBadge from '@/components/StatusBadge';
 
@@ -37,11 +38,12 @@ function Kpi({ icon: Icon, label, value, sub, tone = 'default', testid }) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { scope, currentBranch } = useBranch();
   const navigate = useNavigate();
 
-  const repairs = repairsApi.list();
-  const spareparts = sparepartsApi.list();
-  const customers = customersApi.list();
+  const repairs = scope(repairsApi.list());
+  const spareparts = scope(sparepartsApi.list());
+  const customers = scope(customersApi.list());
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -94,7 +96,9 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <h1 className="title-box font-display text-3xl sm:text-4xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground text-sm mt-2">Ringkasan operasi bengkel hari ini.</p>
+          <p className="text-muted-foreground text-sm mt-2">
+            {currentBranch ? `Cabang ${currentBranch.name}` : 'Ringkasan gabungan semua cabang'}.
+          </p>
         </div>
         <button
           onClick={() => navigate('/repairs/new')}

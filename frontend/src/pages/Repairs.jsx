@@ -7,15 +7,17 @@ import { formatDate } from '@/lib/utils';
 import { STATUS_LABELS, STATUS_ORDER } from '@/lib/mockData';
 import StatusBadge from '@/components/StatusBadge';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBranch } from '@/contexts/BranchContext';
 
 export default function RepairsPage() {
   const { hasRole } = useAuth();
+  const { scope, currentBranch } = useBranch();
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [tick, setTick] = useState(0);
 
-  const repairs = repairsApi.list();
+  const repairs = scope(repairsApi.list());
   const customerMap = Object.fromEntries(customersApi.list().map((c) => [c.id, c]));
   const userMap = Object.fromEntries(usersApi.list().map((u) => [u.id, u]));
 
@@ -49,7 +51,7 @@ export default function RepairsPage() {
         <div>
           <div className="overline text-muted-foreground mb-1">Servis</div>
           <h1 className="title-box font-display text-3xl font-bold tracking-tight">Tiket Servis</h1>
-          <p className="text-muted-foreground text-sm mt-1">{repairs.length} total tiket</p>
+          <p className="text-muted-foreground text-sm mt-2">{repairs.length} total tiket{currentBranch ? ` — ${currentBranch.name}` : ' (semua cabang)'}</p>
         </div>
         <button onClick={() => navigate('/repairs/new')} data-testid="btn-new-repair"
           className="inline-flex items-center gap-2 h-10 px-4 rounded-md bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors">

@@ -20,6 +20,16 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-01-18) — Iteration 4 (Multi Cabang)
+- **Branches CRUD** (admin only) di `/branches`: kelola nama, kode, alamat, telepon, set default cabang
+- **BranchProvider + BranchSelector**: dropdown di topbar kanan atas untuk switch "Semua Cabang" atau pilih cabang spesifik. Non-admin (teknisi/kasir) LOCKED ke cabang mereka.
+- **Data scoping otomatis**: Dashboard KPI, Repairs list, Customers, Sparepart, RepairNew customer dropdown — semua auto-filter by selected branch. New records inherit branch dari selected/customer branch.
+- **Kontribusi Cabang** section di Reports: progress bar horizontal menampilkan pendapatan & tiket per cabang saat "Semua Cabang" dipilih.
+- **User branch assignment**: field `branch_id` di user form + tabel kolom Cabang. Kosong = admin/owner (semua cabang).
+- **Seed v2**: 2 cabang default (Cabang Utama HQ, Cabang Bandung BDG), data distribusi realistis.
+- Fixed: BranchSelector auto-refresh setelah create/update/delete cabang via `kk_branch_changed` event.
+- Testing 13/13 skenario PASSED.
+
 ## Implemented (2026-01-18) — Iteration 3
 - **Cek Status Publik**: Halaman publik `/status/:ticket_no` — pelanggan scan QR dari nota → langsung lihat status tanpa login. Tampilan mobile-first dengan hero card status berwarna, timeline 4-step, detail perangkat, keluhan, rincian biaya, kontak toko dengan tombol WhatsApp.
 - **Privasi**: Nama pelanggan & telepon di-mask (Rina M*****a, 0812****2222). Cost prices, notes teknisi internal disembunyikan.
