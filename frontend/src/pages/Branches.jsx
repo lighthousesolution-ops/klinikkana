@@ -71,7 +71,6 @@ export default function BranchesPage() {
   const users = usersApi.list();
 
   const stats = (id) => ({
-    customers: customers.filter((c) => c.branch_id === id).length,
     repairs: repairs.filter((r) => r.branch_id === id).length,
     parts: parts.filter((s) => s.branch_id === id).length,
     users: users.filter((u) => u.branch_id === id).length,
@@ -141,9 +140,8 @@ export default function BranchesPage() {
               <div className="text-xs text-muted-foreground mt-2">{b.address || '—'}</div>
               <div className="text-xs text-muted-foreground font-mono">{b.phone || '—'}</div>
 
-              <div className="grid grid-cols-4 gap-2 mt-4 pt-4 border-t border-border">
+              <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-border">
                 <Stat label="Tiket" value={s.repairs} />
-                <Stat label="Pelanggan" value={s.customers} />
                 <Stat label="Sparepart" value={s.parts} />
                 <Stat label="Staff" value={s.users} />
               </div>

@@ -43,7 +43,7 @@ export default function DashboardPage() {
 
   const repairs = scope(repairsApi.list());
   const spareparts = scope(sparepartsApi.list());
-  const customers = scope(customersApi.list());
+  const customers = customersApi.list(); // Customers are global across branches
 
   const stats = useMemo(() => {
     const now = new Date();

@@ -4,7 +4,6 @@ import { Plus, Search, Pencil, Trash2, MessageCircle, X, User } from 'lucide-rea
 import { toast } from 'sonner';
 import { customersApi, repairsApi } from '@/lib/store';
 import { formatDate, waLink } from '@/lib/utils';
-import { useBranch } from '@/contexts/BranchContext';
 
 function CustomerModal({ open, onClose, initial, onSaved }) {
   const [form, setForm] = useState(initial || { name: '', phone: '', address: '', notes: '' });
@@ -113,9 +112,9 @@ export default function CustomersPage() {
   const [q, setQ] = useState('');
   const [modal, setModal] = useState({ open: false, initial: null });
   const [historyModal, setHistoryModal] = useState({ open: false, customer: null });
-  const { scope, currentBranch } = useBranch();
 
-  const customers = scope(customersApi.list());
+  // Customers are GLOBAL - visible from all branches
+  const customers = customersApi.list();
   const filtered = customers.filter((c) =>
     !q || c.name.toLowerCase().includes(q.toLowerCase()) || c.phone.includes(q)
   );
@@ -133,7 +132,7 @@ export default function CustomersPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <h1 className="title-box font-display font-bold tracking-tight">Manajemen Pelanggan</h1>
-          <p className="text-muted-foreground text-sm mt-2">{customers.length} pelanggan{currentBranch ? ` di ${currentBranch.name}` : ' (semua cabang)'}</p>
+          <p className="text-muted-foreground text-sm mt-2">{customers.length} pelanggan terdaftar (data global — dapat diakses dari semua cabang)</p>
         </div>
         <button onClick={() => setModal({ open: true, initial: null })} data-testid="btn-new-customer"
           className="inline-flex items-center gap-2 h-10 px-4 rounded-md bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors">

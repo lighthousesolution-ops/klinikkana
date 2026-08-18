@@ -3,14 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { customersApi, repairsApi } from '@/lib/store';
-import { useBranch } from '@/contexts/BranchContext';
 
 const BRANDS = ['iPhone', 'Samsung', 'Xiaomi', 'Oppo', 'Vivo', 'Realme', 'Huawei', 'Asus', 'Nokia', 'Lainnya'];
 
 export default function RepairNew() {
   const navigate = useNavigate();
-  const { scope, currentBranch } = useBranch();
-  const customers = scope(customersApi.list());
+  // Customers are global - list all
+  const customers = customersApi.list();
 
   const [form, setForm] = useState({
     customer_id: customers[0]?.id || '',

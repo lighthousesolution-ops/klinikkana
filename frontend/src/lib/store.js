@@ -100,11 +100,10 @@ export const branchesApi = {
     const items = read(KEYS.branches, []);
     const target = items.find((b) => b.id === id);
     if (target?.is_default) throw new Error('Cabang default tidak dapat dihapus');
-    const hasCustomers = read(KEYS.customers, []).some((c) => c.branch_id === id);
     const hasRepairs = read(KEYS.repairs, []).some((r) => r.branch_id === id);
     const hasParts = read(KEYS.spareparts, []).some((s) => s.branch_id === id);
-    if (hasCustomers || hasRepairs || hasParts) {
-      throw new Error('Cabang masih memiliki data (pelanggan/tiket/sparepart). Pindahkan atau hapus dulu.');
+    if (hasRepairs || hasParts) {
+      throw new Error('Cabang masih memiliki data tiket atau sparepart. Pindahkan atau hapus dulu.');
     }
     write(KEYS.branches, items.filter((b) => b.id !== id));
     fireBranchMutation();
@@ -176,11 +175,28 @@ export const usersApi = {
 };
 
 // ============ CUSTOMERS ============
+// Note: Customers are GLOBAL across all branches (not scoped). branch_id is
+// only informational metadata showing where customer was first registered.
+function normalizePhone(p) {
+  return String(p || '').replace(/\D/g, '');
+}
+function findDuplicatePhone(customers, phone, exceptId = null) {
+  const target = normalizePhone(phone);
+  if (!target) return null;
+  return customers.find((c) => c.id !== exceptId && normalizePhone(c.phone) === target);
+}
+
 export const customersApi = {
   list: () => read(KEYS.customers, []),
   get: (id) => read(KEYS.customers, []).find((c) => c.id === id),
+  findByPhone: (phone) => {
+    const customers = read(KEYS.customers, []);
+    return findDuplicatePhone(customers, phone);
+  },
   create: (data) => {
     const customers = read(KEYS.customers, []);
+    const dup = findDuplicatePhone(customers, data.phone);
+    if (dup) throw new Error(`Nomor HP sudah dipakai oleh pelanggan "${dup.name}"`);
     const branch_id = data.branch_id || branchesApi.getCurrent() || (branchesApi.list().find((b) => b.is_default)?.id) || null;
     const item = { id: uid('c'), created_at: new Date().toISOString(), branch_id, ...data };
     customers.push(item);
@@ -191,6 +207,10 @@ export const customersApi = {
     const customers = read(KEYS.customers, []);
     const idx = customers.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('Pelanggan tidak ditemukan');
+    if (data.phone !== undefined) {
+      const dup = findDuplicatePhone(customers, data.phone, id);
+      if (dup) throw new Error(`Nomor HP sudah dipakai oleh pelanggan "${dup.name}"`);
+    }
     customers[idx] = { ...customers[idx], ...data };
     write(KEYS.customers, customers);
     return customers[idx];
