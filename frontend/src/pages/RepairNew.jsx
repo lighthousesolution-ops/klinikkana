@@ -42,7 +42,7 @@ export default function RepairNew() {
 
       <div>
         <div className="overline text-muted-foreground mb-1">Tiket baru</div>
-        <h1 className="font-display text-3xl font-bold tracking-tight">Buat Tiket Servis</h1>
+        <h1 className="title-box font-display text-3xl font-bold tracking-tight">Buat Tiket Servis</h1>
         <p className="text-muted-foreground text-sm mt-1">Isi detail perangkat dan keluhan pelanggan.</p>
       </div>
 

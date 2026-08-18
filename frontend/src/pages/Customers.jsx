@@ -131,7 +131,7 @@ export default function CustomersPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <div className="overline text-muted-foreground mb-1">Pelanggan</div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Manajemen Pelanggan</h1>
+          <h1 className="title-box font-display text-3xl font-bold tracking-tight">Manajemen Pelanggan</h1>
           <p className="text-muted-foreground text-sm mt-1">{customers.length} pelanggan terdaftar</p>
         </div>
         <button onClick={() => setModal({ open: true, initial: null })} data-testid="btn-new-customer"

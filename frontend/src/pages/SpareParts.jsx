@@ -111,7 +111,7 @@ export default function SparePartsPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <div className="overline text-muted-foreground mb-1">Inventori</div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Sparepart</h1>
+          <h1 className="title-box font-display text-3xl font-bold tracking-tight">Sparepart</h1>
           <p className="text-muted-foreground text-sm mt-1">
             {items.length} item • {lowCount > 0 && <span className="text-amber-600 dark:text-amber-400 font-medium">{lowCount} stok menipis</span>}
           </p>

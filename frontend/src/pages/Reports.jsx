@@ -58,7 +58,7 @@ export default function ReportsPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <div className="overline text-muted-foreground mb-1">Analitik</div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Laporan Keuangan</h1>
+          <h1 className="title-box font-display text-3xl font-bold tracking-tight">Laporan Keuangan</h1>
           <p className="text-muted-foreground text-sm mt-1">Ringkasan {range} bulan terakhir</p>
         </div>
         <div className="flex gap-1 p-1 rounded-md border border-border bg-card">
