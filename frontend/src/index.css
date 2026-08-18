@@ -86,10 +86,35 @@ h1, h2, h3, h4, h5, h6, .font-display {
 }
 
 .overline {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 5px;
+    background-color: hsl(var(--primary) / 0.10) !important;
+    color: hsl(var(--primary)) !important;
     text-transform: uppercase;
-    letter-spacing: 0.2em;
-    font-size: 0.7rem;
-    font-weight: 600;
+    letter-spacing: 0.08em;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.5;
+    width: fit-content;
+    white-space: nowrap;
+}
+
+/* Sidebar override: darker context needs lighter chip */
+aside.bg-sidebar .overline,
+.bg-sidebar .overline {
+    background-color: rgba(255, 255, 255, 0.10) !important;
+    color: hsl(var(--sidebar-muted)) !important;
+}
+
+/* Print: keep overlines simple/monochrome for invoice printing */
+@media print {
+    .overline {
+        background-color: transparent !important;
+        color: #444 !important;
+        padding: 0 !important;
+    }
 }
 
 /* Custom scrollbar */
