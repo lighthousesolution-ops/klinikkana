@@ -13,6 +13,7 @@ const PLACEHOLDER_LIST = [
   { key: '{deposit}', desc: 'Uang muka' },
   { key: '{balance}', desc: 'Sisa bayar' },
   { key: '{status_message}', desc: 'Pesan spesifik status (dari template status di bawah)' },
+  { key: '{status_url}', desc: 'Link cek status publik (untuk QR/WA)' },
 ];
 
 export default function SettingsPage() {

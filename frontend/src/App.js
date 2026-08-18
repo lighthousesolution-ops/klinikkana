@@ -14,6 +14,7 @@ import RepairsPage from '@/pages/Repairs';
 import RepairNew from '@/pages/RepairNew';
 import RepairDetail from '@/pages/RepairDetail';
 import InvoicePage from '@/pages/Invoice';
+import PublicStatusPage from '@/pages/PublicStatus';
 import SparePartsPage from '@/pages/SpareParts';
 import UsersPage from '@/pages/Users';
 import SettingsPage from '@/pages/Settings';
@@ -26,6 +27,9 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+
+            {/* Public status page - no auth required */}
+            <Route path="/status/:ticket_no" element={<PublicStatusPage />} />
 
             {/* Invoice - outside layout so it prints clean */}
             <Route path="/repairs/:id/invoice" element={

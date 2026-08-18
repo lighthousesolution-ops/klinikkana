@@ -20,6 +20,15 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-01-18) — Iteration 3
+- **Cek Status Publik**: Halaman publik `/status/:ticket_no` — pelanggan scan QR dari nota → langsung lihat status tanpa login. Tampilan mobile-first dengan hero card status berwarna, timeline 4-step, detail perangkat, keluhan, rincian biaya, kontak toko dengan tombol WhatsApp.
+- **Privasi**: Nama pelanggan & telepon di-mask (Rina M*****a, 0812****2222). Cost prices, notes teknisi internal disembunyikan.
+- **QR di invoice A4 & Thermal** sekarang encode URL `/status/{ticket_no}` (bukan JSON). Thermal receipt juga menampilkan URL sebagai fallback jika QR tidak bisa di-scan.
+- **Tombol Salin Link Status** di RepairDetail header - staff bisa copy URL untuk kirim via SMS/WA manual.
+- **Placeholder `{status_url}`** di template WhatsApp — link cek status otomatis masuk ke pesan WA yang dikirim ke pelanggan.
+- **PHP endpoint publik** `/api/public/status.php?ticket=...` dengan masking sanitized, tanpa require auth token.
+- **Handling not found** dengan CTA kontak WA toko
+
 ## Implemented (2026-01-18) — Iteration 2
 - Sidebar berwarna navy blue (`--sidebar-bg`), branding dinamis dari settings
 - Halaman **Konfigurasi** (admin only): upload logo (base64), edit nama toko/tagline/alamat/telepon, footer nota, template WhatsApp dengan placeholder ({customer_name}, {shop_name}, {ticket_no}, {device}, {status}, {total}, {deposit}, {balance}, {status_message}), + 4 template pesan status khusus

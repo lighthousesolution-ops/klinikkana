@@ -27,8 +27,11 @@ export default function InvoicePage() {
 
   const qrValue = useMemo(() => {
     if (!repair) return '';
-    return JSON.stringify({ ticket: repair.ticket_no, id: repair.id, shop: settings.shop_name });
-  }, [repair, settings]);
+    // Encode a public status URL so scanning the QR from any phone opens the
+    // status page directly (no login required).
+    const origin = window.location.origin;
+    return `${origin}/status/${encodeURIComponent(repair.ticket_no)}`;
+  }, [repair]);
 
   useEffect(() => {
     document.body.classList.toggle('print-thermal', mode === 'thermal');
@@ -104,8 +107,9 @@ function InvoiceA4({ repair, customer, spMap, technician, settings, totals, qrVa
         <div className="text-right">
           <div className="uppercase tracking-widest text-xs font-semibold text-neutral-500">Invoice / Nota Servis</div>
           <div className="font-display font-bold text-3xl mt-1">{repair.ticket_no}</div>
-          <div className="mt-3">
+          <div className="mt-3 flex flex-col items-end gap-1">
             <QRCodeSVG value={qrValue} size={80} level="M" includeMargin={false} />
+            <div className="text-[9px] text-neutral-500 max-w-[120px] break-all text-right">Scan untuk cek status</div>
           </div>
         </div>
       </div>
@@ -318,7 +322,8 @@ function InvoiceThermal({ repair, customer, spMap, settings, totals, qrValue }) 
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <QRCodeSVG value={qrValue} size={70} level="M" includeMargin={false} />
         </div>
-        <div style={{ fontSize: '8px', marginTop: '3px' }}>Scan untuk cek status</div>
+        <div style={{ fontSize: '8px', marginTop: '3px', fontWeight: 700 }}>SCAN CEK STATUS</div>
+        <div style={{ fontSize: '7px', marginTop: '2px', wordBreak: 'break-all' }}>{qrValue.replace(/^https?:\/\//, '')}</div>
       </div>
 
       {/* Footer */}

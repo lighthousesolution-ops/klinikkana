@@ -84,6 +84,7 @@ Tambahkan interceptor axios untuk kirim `Authorization: Bearer <token>` di setia
 | GET/POST/PUT/DELETE | /api/users/index.php[?id=]             | admin only   |
 | GET/PUT | /api/settings/index.php                            | any/admin    |
 | GET    | /api/dashboard/stats.php                            | any          |
+| GET    | /api/public/status.php?ticket=KK-...                | **PUBLIC**   |
 
 ## Fitur Utama
 

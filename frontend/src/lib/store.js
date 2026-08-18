@@ -20,7 +20,7 @@ const DEFAULT_SETTINGS = {
   shop_phone: '021-1234567 / 0812-3456-7890',
   logo_url: '',
   invoice_footer: 'Terima kasih atas kepercayaan Anda.\nGaransi servis 14 hari untuk sparepart yang diganti.',
-  wa_template: 'Halo {customer_name},\n\nDari {shop_name}. Info servis Anda:\n\n• Tiket: {ticket_no}\n• Perangkat: {device}\n• Status: {status}\n• Total: {total}\n• DP: {deposit}\n• Sisa: {balance}\n\n{status_message}\n\nTerima kasih!',
+  wa_template: 'Halo {customer_name},\n\nDari {shop_name}. Info servis Anda:\n\n• Tiket: {ticket_no}\n• Perangkat: {device}\n• Status: {status}\n• Total: {total}\n• DP: {deposit}\n• Sisa: {balance}\n\n{status_message}\n\nCek status kapan saja: {status_url}\n\nTerima kasih!',
   wa_status_pending: 'Perangkat Anda telah kami terima dan sedang antre pemeriksaan.',
   wa_status_in_progress: 'Perangkat Anda sedang dalam proses perbaikan.',
   wa_status_ready: 'Perangkat Anda sudah selesai dan siap diambil! Silakan datang ke toko kami.',
@@ -194,6 +194,7 @@ function nextTicketNo(existing) {
 export const repairsApi = {
   list: () => read(KEYS.repairs, []),
   get: (id) => read(KEYS.repairs, []).find((r) => r.id === id),
+  getByTicket: (ticket_no) => read(KEYS.repairs, []).find((r) => r.ticket_no === ticket_no),
   byCustomer: (customer_id) => read(KEYS.repairs, []).filter((r) => r.customer_id === customer_id),
   create: (data) => {
     const items = read(KEYS.repairs, []);

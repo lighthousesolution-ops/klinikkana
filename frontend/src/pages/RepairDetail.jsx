@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, MessageCircle, Package, Plus, Trash2, User, Smartphone, ClipboardList, Save, Printer, Wallet, FileText } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Package, Plus, Trash2, User, Smartphone, ClipboardList, Save, Printer, Wallet, FileText, Link as LinkIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { repairsApi, customersApi, sparepartsApi, usersApi, settingsApi, computeTotal } from '@/lib/store';
 import { STATUS_LABELS, STATUS_ORDER } from '@/lib/mockData';
@@ -37,6 +37,7 @@ export default function RepairDetailPage() {
     if (!repair) return '';
     const statusKey = repair.status;
     const statusMsg = settings[`wa_status_${statusKey}`] || '';
+    const statusUrl = `${window.location.origin}/status/${encodeURIComponent(repair.ticket_no)}`;
     return renderTemplate(settings.wa_template || '', {
       customer_name: customer?.name || '',
       shop_name: settings.shop_name || '',
@@ -47,6 +48,7 @@ export default function RepairDetailPage() {
       deposit: formatIDR(totals.deposit + totals.payments_total),
       balance: formatIDR(Math.max(0, totals.balance)),
       status_message: statusMsg,
+      status_url: statusUrl,
     });
   }, [repair, customer, totals, settings]);
 
@@ -116,6 +118,16 @@ export default function RepairDetailPage() {
     }
   };
 
+  const publicStatusUrl = `${window.location.origin}/status/${encodeURIComponent(repair.ticket_no)}`;
+  const copyStatusLink = async () => {
+    try {
+      await navigator.clipboard.writeText(publicStatusUrl);
+      toast.success('Link cek status disalin ke clipboard');
+    } catch {
+      toast.error('Gagal menyalin — silakan copy manual: ' + publicStatusUrl);
+    }
+  };
+
   const nextStatusIdx = STATUS_ORDER.indexOf(repair.status);
   const nextStatus = nextStatusIdx >= 0 && nextStatusIdx < STATUS_ORDER.length - 1 ? STATUS_ORDER[nextStatusIdx + 1] : null;
 
@@ -145,6 +157,10 @@ export default function RepairDetailPage() {
               className="inline-flex items-center gap-2 h-10 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-semibold">
               <FileText className="h-4 w-4" /> Cetak Nota
             </Link>
+            <button onClick={copyStatusLink} data-testid="btn-copy-status-link" title={publicStatusUrl}
+              className="inline-flex items-center gap-2 h-10 px-4 rounded-md border border-border hover:bg-accent transition-colors text-sm font-semibold">
+              <LinkIcon className="h-4 w-4" /> Salin Link Status
+            </button>
           </div>
         </div>
       </div>
