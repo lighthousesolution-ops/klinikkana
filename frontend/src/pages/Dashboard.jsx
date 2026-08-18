@@ -93,9 +93,8 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <div className="overline text-muted-foreground mb-1">Halo, {user?.full_name?.split(' ')[0]}</div>
           <h1 className="title-box font-display text-3xl sm:text-4xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground text-sm mt-1">Ringkasan operasi bengkel hari ini.</p>
+          <p className="text-muted-foreground text-sm mt-2">Ringkasan operasi bengkel hari ini.</p>
         </div>
         <button
           onClick={() => navigate('/repairs/new')}
