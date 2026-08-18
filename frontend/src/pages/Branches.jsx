@@ -99,8 +99,7 @@ export default function BranchesPage() {
     <div className="space-y-6 animate-fade-in" data-testid="branches-page">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <div className="overline">Sistem</div>
-          <h1 className="title-box font-display text-3xl font-bold tracking-tight">Kelola Cabang</h1>
+          <h1 className="title-box font-display font-bold tracking-tight">Kelola Cabang</h1>
           <p className="text-muted-foreground text-sm mt-2">{branches.length} cabang terdaftar. Data pelanggan, sparepart, dan tiket akan otomatis di-scope ke cabang.</p>
         </div>
         <button onClick={() => setModal({ open: true, initial: null })} data-testid="btn-new-branch"

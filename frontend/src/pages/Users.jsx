@@ -113,8 +113,7 @@ export default function UsersPage() {
     <div className="space-y-6 animate-fade-in" data-testid="users-page">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <div className="overline text-muted-foreground mb-1">Sistem</div>
-          <h1 className="title-box font-display text-3xl font-bold tracking-tight">Kelola User</h1>
+          <h1 className="title-box font-display font-bold tracking-tight">Kelola User</h1>
           <p className="text-muted-foreground text-sm mt-1">{users.length} user terdaftar</p>
         </div>
         <button onClick={() => setModal({ open: true, initial: null })} data-testid="btn-new-user"

@@ -95,7 +95,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <h1 className="title-box font-display text-3xl sm:text-4xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="title-box font-display font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-2">
             {currentBranch ? `Cabang ${currentBranch.name}` : 'Ringkasan gabungan semua cabang'}.
           </p>

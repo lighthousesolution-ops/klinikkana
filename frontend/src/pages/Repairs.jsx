@@ -49,8 +49,7 @@ export default function RepairsPage() {
     <div className="space-y-6 animate-fade-in" data-testid="repairs-page">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <div className="overline text-muted-foreground mb-1">Servis</div>
-          <h1 className="title-box font-display text-3xl font-bold tracking-tight">Tiket Servis</h1>
+          <h1 className="title-box font-display font-bold tracking-tight">Tiket Servis</h1>
           <p className="text-muted-foreground text-sm mt-2">{repairs.length} total tiket{currentBranch ? ` — ${currentBranch.name}` : ' (semua cabang)'}</p>
         </div>
         <button onClick={() => navigate('/repairs/new')} data-testid="btn-new-repair"
