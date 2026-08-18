@@ -186,7 +186,7 @@ export default function PublicStatusPage() {
           </div>
         </div>
 
-        {/* Rating form (only when picked_up) */}
+        {/* Rating form (only when picked_up / selesai) */}
         {repair.status === 'picked_up' && (
           <RatingSection repair={repair} onSubmitted={() => setTick((t) => t + 1)} />
         )}
@@ -219,13 +219,29 @@ export default function PublicStatusPage() {
             <div className="flex justify-between"><span className="text-muted-foreground">Sudah Dibayar</span><span className="font-mono">{formatIDR(totals.paid)}</span></div>
             <div className="pt-3 mt-2 border-t border-border flex justify-between items-baseline">
               <span className="font-semibold">Sisa Bayar</span>
-              <span className={`font-mono font-bold text-2xl font-display ${totals.balance <= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-primary'}`}>
+              <span className={`font-mono font-bold text-2xl font-display ${
+                totals.balance <= 0 && totals.total > 0 && (repair.status === 'ready' || repair.status === 'picked_up')
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-primary'
+              }`} data-testid="public-balance">
                 {formatIDR(Math.max(0, totals.balance))}
               </span>
             </div>
-            {totals.balance <= 0 && (
-              <div className="text-center py-2 mt-2 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 font-display font-bold tracking-widest text-sm">
+            {/* Show LUNAS only when there IS a bill (total>0), balance is settled, AND
+                the device is either ready to pick up or already picked up.
+                Prevents "LUNAS" from showing on pending/in-progress tickets that have
+                no cost yet (belum ada tagihan → belum bisa disebut lunas). */}
+            {totals.total > 0 &&
+             totals.balance <= 0 &&
+             (repair.status === 'ready' || repair.status === 'picked_up') && (
+              <div className="text-center py-2 mt-2 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 font-display font-bold tracking-widest text-sm" data-testid="lunas-badge">
                 ✓ LUNAS
+              </div>
+            )}
+            {/* Info kalau belum ada tagihan */}
+            {totals.total === 0 && (
+              <div className="text-center py-2 mt-2 rounded-md bg-muted/60 border border-border text-muted-foreground text-xs" data-testid="no-bill-info">
+                Rincian biaya akan muncul setelah perangkat diperiksa teknisi.
               </div>
             )}
           </div>

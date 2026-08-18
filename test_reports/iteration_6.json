@@ -1,0 +1,27 @@
+{
+  "summary": "Frontend-only regression for PublicStatus.jsx fixes on /status/:ticket_no. Verified LUNAS badge guard (only shows when total>0, balance<=0, and status in ready/picked_up) and Rating form gate (only shows on picked_up). All 8 assertions passed across 6 seeded tickets (pending, in_progress, ready, picked_up with balance, picked_up fully-paid, picked_up unrated).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "PublicStatus status chip / timeline", "issues": ["Status labels rendered in English ('Pending', 'In Progress', 'Ready for Pickup', 'Picked Up') on an Indonesian UI. STATUS_LABELS in /app/frontend/src/lib/mockData.js should be localized to Indonesian (e.g. 'Menunggu', 'Dikerjakan', 'Siap Diambil', 'Sudah Diambil') to match STATUS_DESCRIPTIONS in PublicStatus.jsx."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Optional: Localize STATUS_LABELS to Indonesian to match rest of the Indonesian UI (minor polish, not part of current bug scope)."
+  ],
+  "critical_code_review_comments": [
+    "PublicStatus.jsx LUNAS guard is correct: totals.total > 0 && totals.balance <= 0 && status in (ready|picked_up). Consider also gating 'no-bill-info' to only pending/in_progress statuses so it does not appear on a ready ticket with zero cost.",
+    "computeTotal treats deposit + payments as paid without a cap; on KK-2501-006 (deposit 200k, total 150k) balance becomes negative and is clamped by Math.max(0, ...) in the UI. Consider preventing over-payment / storing a proper credit note upstream."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "seed_data_creation": "Non-persistent localStorage mutations during test only: added Rp1.100.000 payment to KK-2501-001, and flipped KK-2501-005 to picked_up. localStorage.clear() called at end of run so next visit will re-seed defaults.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "admin/admin123 (not needed – all scenarios exercised via localStorage per mocked-API architecture)",
+  "context_for_next_testing_agent": "PublicStatus.jsx fixes verified. Assertions covered: 006 pending (no LUNAS, no rating), 004 in_progress (no LUNAS, no rating), 003 ready (no rating), 002 picked_up w/ balance (no LUNAS, rating form shows), 001 picked_up fully paid (LUNAS shows), 005 picked_up unrated (rating form + star click works). Only remaining polish: STATUS_LABELS localization to Indonesian.",
+  "rca_of_the_issue": "Original bug: LUNAS badge showed on pending tickets because computeTotal returned balance=0 when total=0 (deposit>=total trivially true), and the badge previously rendered on `balance <= 0` alone. Fix added guards `totals.total > 0` and `status in (ready|picked_up)`, plus a distinct 'no-bill-info' block for total===0. RatingSection was already gated to status==='picked_up' and remains so."
+}
