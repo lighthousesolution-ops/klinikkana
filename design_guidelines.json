@@ -1,0 +1,100 @@
+{
+  "theme_strategy": "Light and Dark Mode Toggle - Focus on High Contrast Swiss styling for clarity in a bustling repair shop environment.",
+  "colors": {
+    "archetype": "Swiss & High-Contrast",
+    "primary": "#002FA7",
+    "primary_description": "International Klein Blue - for primary actions (Save, Submit, New Ticket)",
+    "background_light": "#F8F9FA",
+    "background_dark": "#0A0A0A",
+    "surface": "Flat solid surfaces with 1px border. No glassmorphism in main dashboard to prevent visual refraction of data.",
+    "status_colors": {
+      "pending": "#F59E0B",
+      "in_progress": "#3B82F6",
+      "ready": "#10B981",
+      "picked_up": "#6B7280",
+      "destructive": "#EF4444"
+    }
+  },
+  "typography": {
+    "strategy": "Soft Utility mixed with Swiss clarity",
+    "heading_font": "Manrope",
+    "body_font": "IBM Plex Sans",
+    "rules": [
+      "NO Inter for headings.",
+      "Headings use tight letter spacing (tracking-tight).",
+      "Overlines and Labels must be uppercase, tiny, wide spacing (tracking-[0.2em]).",
+      "Jump between headings must not exceed 2 Tailwind steps."
+    ],
+    "scale": {
+      "h1": "text-3xl sm:text-4xl",
+      "h2": "text-2xl sm:text-3xl",
+      "h3": "text-xl sm:text-2xl",
+      "body": "text-base",
+      "labels": "text-sm uppercase tracking-[0.2em]"
+    }
+  },
+  "layouts": {
+    "strategy": "High Density Grid (For Dashboards/Analytics)",
+    "sidebar": "Fixed width (w-64), sticky, border-r border-border.",
+    "main_content": "p-6 md:p-8 space-y-8",
+    "grid_rules": [
+      "Base Grid: grid-cols-1 md:grid-cols-3 lg:grid-cols-4",
+      "Gap Strategy: Tight (gap-4 or gap-6)",
+      "Metrics Cards: col-span-1",
+      "Main Charts: col-span-2 or col-span-3",
+      "Grid items MUST be direct children."
+    ]
+  },
+  "surfaces_and_components": {
+    "cards": "Flat background, 1px subtle border (border-border), no shadow. Hover: Slight lift (-translate-y-1), subtle shadow.",
+    "buttons": "Sharp or slightly rounded (rounded-md), solid colors. NO generic pill buttons unless specified. Micro-animations on hover.",
+    "tables": "Shadcn UI tables, dense padding, hover states on rows. Status badges using distinct high-contrast colors.",
+    "forms": "Shadcn UI forms. Left-align inputs and labels.",
+    "navigation": "Sidebar with Lucide icons. Must include Logo, Navigation Links, User Profile, Theme Toggle, and Logout.",
+    "toasts": "Sonner (bottom-right placement)."
+  },
+  "motion": {
+    "strategy": "Minimalist - use micro-interactions for feedback.",
+    "rules": [
+      "Hover states on all interactive elements.",
+      "Transition specific properties (transition-colors, transition-transform) - NEVER transition-all.",
+      "Entrance animations staggered for lists (tables/cards)."
+    ]
+  },
+  "images": [
+    {
+      "url": "https://images.pexels.com/photos/6754839/pexels-photo-6754839.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "category": "login_background",
+      "description": "Technician working on smartphone repair under microscope"
+    },
+    {
+      "url": "https://images.pexels.com/photos/163170/board-printed-circuit-board-computer-electronics-163170.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "category": "abstract_tech_texture",
+      "description": "Detailed close-up of a circuit board"
+    }
+  ],
+  "instructions_to_main_agent": [
+    "You are building 'Aplikasi Servis HP- Klinik Kana', a dashboard for a phone repair shop.",
+    "Install and use 'lucide-react' for all icons.",
+    "Install and use 'recharts' for the revenue and status distribution charts.",
+    "Implement a sidebar navigation (Dashboard, Customers, Repairs, Spare Parts, Users, Reports).",
+    "Create a robust RBAC login UI (Admin, Technician, Cashier).",
+    "Use Shadcn UI components for Tables, Dialogs, Select, Forms.",
+    "Use Sonner for toast notifications (e.g., when a repair ticket is created).",
+    "Add a WhatsApp notification simulation button on the Repair Detail page (using wa.me link).",
+    "All interactive elements MUST include data-testid attribute.",
+    "Avoid generic centered layouts. Use left-aligned dense data presentation.",
+    "Ensure the layout is fully responsive.",
+    "Generate styles specifically for .js/.jsx ecosystem without Typescript specific type annotations when setting up components."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Do not converge toward generic AI slop aesthetics.",
+    "Create depth through layered design elements with z-index hierarchy, but keep dashboard surfaces flat and readable.",
+    "NEVER apply universal transition (transition-all).",
+    "NEVER center align the app container.",
+    "Do not use placeholder text for missing images. Use the provided image URLs.",
+    "Every interaction needs micro-animations (hover states, focus states).",
+    "Use 2-3x more spacing than typical for main sections to give breathing room, but keep grids dense.",
+    "Always use Sonner for toasts."
+  ]
+}
