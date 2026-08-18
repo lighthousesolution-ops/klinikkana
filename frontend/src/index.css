@@ -107,34 +107,31 @@ h1, h2, h3, h4, h5, h6, .font-display {
 }
 
 .overline {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 8px;
-    border-radius: 5px;
-    background-color: hsl(var(--primary) / 0.10) !important;
-    color: hsl(var(--primary)) !important;
+    display: inline-block;
+    padding: 0;
+    background: transparent !important;
+    color: hsl(var(--muted-foreground)) !important;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.14em;
     font-size: 0.68rem;
     font-weight: 700;
-    line-height: 1.5;
+    line-height: 1.4;
     width: fit-content;
     white-space: nowrap;
+    border: none;
+    text-decoration: none;
 }
 
-/* Sidebar override: darker context needs lighter chip */
+/* Sidebar keeps muted look */
 aside.bg-sidebar .overline,
 .bg-sidebar .overline {
-    background-color: rgba(255, 255, 255, 0.10) !important;
     color: hsl(var(--sidebar-muted)) !important;
 }
 
-/* Print: keep overlines simple/monochrome for invoice printing */
+/* Print: same simple look */
 @media print {
     .overline {
-        background-color: transparent !important;
-        color: #444 !important;
-        padding: 0 !important;
+        color: #666 !important;
     }
 }
 
