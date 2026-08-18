@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Save, RotateCcw, Upload, Trash2, Info, Store, MessageSquare, FileText } from 'lucide-react';
+import { Save, RotateCcw, Upload, Trash2, Info, Store, MessageSquare, FileText, Printer } from 'lucide-react';
 import { toast } from 'sonner';
-import { settingsApi } from '@/lib/store';
+import { settingsApi, preferencesApi } from '@/lib/store';
+import { useAuth } from '@/contexts/AuthContext';
 
 const PLACEHOLDER_LIST = [
   { key: '{customer_name}', desc: 'Nama pelanggan' },
@@ -17,11 +18,20 @@ const PLACEHOLDER_LIST = [
 ];
 
 export default function SettingsPage() {
+  const { user } = useAuth();
   const [form, setForm] = useState(settingsApi.get());
   const [dirty, setDirty] = useState(false);
   const fileRef = useRef(null);
+  // Per-user preferences (device-local).
+  const [prefs, setPrefs] = useState(() => preferencesApi.get(user?.id));
 
   const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setDirty(true); };
+
+  const setPref = (k, v) => {
+    const next = preferencesApi.update(user?.id, { [k]: v });
+    setPrefs(next);
+    toast.success('Preferensi tersimpan');
+  };
 
   const save = () => {
     settingsApi.update(form);
@@ -147,6 +157,47 @@ export default function SettingsPage() {
         <textarea rows={4} data-testid="setting-invoice-footer" value={form.invoice_footer} onChange={(e) => set('invoice_footer', e.target.value)}
           className="w-full px-3 py-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none font-mono text-sm" />
         <p className="text-xs text-muted-foreground mt-2">Contoh: syarat garansi, jam operasional, terima kasih, dll.</p>
+      </div>
+
+      {/* Per-user Print Preferences */}
+      <div className="rounded-lg border border-border bg-card p-6" data-testid="section-print-prefs">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="h-9 w-9 rounded-md bg-accent grid place-items-center text-primary"><Printer className="h-4 w-4" /></div>
+          <div>
+            <div className="overline text-muted-foreground">Preferensi Cetak (per user)</div>
+            <h3 className="font-display text-lg font-semibold tracking-tight">Ukuran Nota Default</h3>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          Otomatis dipilih saat Anda buka halaman cetak nota. Preferensi ini <strong>disimpan per user</strong> di perangkat ini.
+        </p>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { v: 'a4',        label: 'A4',          desc: 'Kertas standar, cocok untuk printer inkjet/laser' },
+            { v: 'thermal58', label: 'Thermal 58mm', desc: 'Printer POS kecil, hemat kertas' },
+            { v: 'thermal80', label: 'Thermal 80mm', desc: 'Printer POS standar, lebih lebar' },
+          ].map((opt) => {
+            const active = prefs.default_invoice_size === opt.v;
+            return (
+              <button
+                key={opt.v}
+                onClick={() => setPref('default_invoice_size', opt.v)}
+                data-testid={`pref-invoice-${opt.v}`}
+                className={`text-left p-4 rounded-md border-2 transition-all ${
+                  active
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/40 hover:bg-accent/30'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <div className="font-display font-bold tracking-tight">{opt.label}</div>
+                  {active && <div className="text-xs font-semibold text-primary">✓ Default</div>}
+                </div>
+                <div className="text-xs text-muted-foreground">{opt.desc}</div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* WhatsApp templates */}

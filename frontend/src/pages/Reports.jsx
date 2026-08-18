@@ -1,8 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
-import { repairsApi, customersApi, sparepartsApi, branchesApi, computeTotal } from '@/lib/store';
+import { FileSpreadsheet, FileText, Download } from 'lucide-react';
+import { toast } from 'sonner';
+import { repairsApi, customersApi, sparepartsApi, branchesApi, usersApi, settingsApi, computeTotal } from '@/lib/store';
 import { formatIDR, formatDate } from '@/lib/utils';
 import { useBranch } from '@/contexts/BranchContext';
+import { exportMonthlyExcel, exportMonthlyPDF } from '@/lib/reportExport';
 
 export default function ReportsPage() {
   const [range, setRange] = useState(6); // months
@@ -11,6 +14,68 @@ export default function ReportsPage() {
   const customers = customersApi.list();
   const spareparts = sparepartsApi.list();
   const branches = branchesApi.list();
+
+  // ============ EXPORT ============
+  // Month selector for export (default: current month).
+  const now = new Date();
+  const [exportMonth, setExportMonth] = useState(() => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+  const [exporting, setExporting] = useState(false);
+
+  const buildExportCtx = () => {
+    const [y, m] = exportMonth.split('-').map(Number);
+    const year = y;
+    const monthIdx = m - 1;
+    // Filter: repairs that finished this month, in the current branch scope.
+    const monthRepairs = repairs.filter((r) => {
+      if (r.status !== 'picked_up') return false;
+      const d = r.picked_up_at ? new Date(r.picked_up_at) : null;
+      return d && d.getFullYear() === year && d.getMonth() === monthIdx;
+    });
+    return {
+      year, month: monthIdx,
+      repairs: monthRepairs,
+      customers,
+      spareparts,
+      branches,
+      technicians: usersApi.list().filter((u) => u.role === 'technician' || u.role === 'admin'),
+      shopName: settingsApi.get().shop_name,
+      branchName: currentBranch?.name || 'Semua Cabang',
+    };
+  };
+
+  const doExportExcel = () => {
+    setExporting(true);
+    try {
+      const ctx = buildExportCtx();
+      if (ctx.repairs.length === 0) {
+        toast.warning('Tidak ada tiket selesai di bulan tersebut');
+        return;
+      }
+      const { filename, rowCount } = exportMonthlyExcel(ctx);
+      toast.success(`${filename} berhasil diunduh (${rowCount} baris)`);
+    } catch (e) {
+      toast.error(`Gagal ekspor Excel: ${e.message}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const doExportPDF = () => {
+    setExporting(true);
+    try {
+      const ctx = buildExportCtx();
+      if (ctx.repairs.length === 0) {
+        toast.warning('Tidak ada tiket selesai di bulan tersebut');
+        return;
+      }
+      const { filename, rowCount } = exportMonthlyPDF(ctx);
+      toast.success(`${filename} berhasil diunduh (${rowCount} baris)`);
+    } catch (e) {
+      toast.error(`Gagal ekspor PDF: ${e.message}`);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Per-branch breakdown (only when viewing all branches)
   const branchBreakdown = React.useMemo(() => {
@@ -83,6 +148,52 @@ export default function ReportsPage() {
               {n} Bulan
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* ============ EXPORT LAPORAN ============ */}
+      <div className="rounded-lg border border-border bg-card p-5" data-testid="export-panel">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-md bg-accent grid place-items-center text-primary shrink-0">
+              <Download className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="overline text-muted-foreground">Ekspor untuk Pajak & Akuntansi</div>
+              <h3 className="font-display text-lg font-semibold tracking-tight">Unduh Laporan Bulanan</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Berisi seluruh tiket <b>selesai</b> pada bulan terpilih di cabang {currentBranch?.name || 'gabungan'}. Termasuk pelanggan, teknisi, jasa, sparepart, DP, cicilan, sisa, HPP, dan laba.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Pilih Bulan</label>
+              <input
+                type="month"
+                value={exportMonth}
+                onChange={(e) => setExportMonth(e.target.value)}
+                data-testid="export-month"
+                className="h-10 px-3 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm font-mono"
+              />
+            </div>
+            <button
+              onClick={doExportExcel}
+              disabled={exporting}
+              data-testid="btn-export-excel"
+              className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-semibold transition-colors disabled:opacity-50"
+            >
+              <FileSpreadsheet className="h-4 w-4" /> Excel
+            </button>
+            <button
+              onClick={doExportPDF}
+              disabled={exporting}
+              data-testid="btn-export-pdf"
+              className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-md bg-rose-600 text-white hover:bg-rose-700 text-sm font-semibold transition-colors disabled:opacity-50"
+            >
+              <FileText className="h-4 w-4" /> PDF
+            </button>
+          </div>
         </div>
       </div>
 

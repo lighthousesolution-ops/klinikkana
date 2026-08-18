@@ -136,6 +136,27 @@ export const settingsApi = {
   reset: () => { write(KEYS.settings, DEFAULT_SETTINGS); return DEFAULT_SETTINGS; },
 };
 
+// ============ USER PREFERENCES ============
+// Per-user, per-device preferences stored under kk_pref_{user_id}.
+// Falls back to a global default if there is no session (rare).
+const PREF_DEFAULTS = {
+  default_invoice_size: 'a4', // 'a4' | 'thermal58' | 'thermal80'
+};
+
+function prefKey(user_id) {
+  return `kk_pref_${user_id || 'anon'}`;
+}
+
+export const preferencesApi = {
+  get: (user_id) => ({ ...PREF_DEFAULTS, ...read(prefKey(user_id), {}) }),
+  update: (user_id, patch) => {
+    const current = preferencesApi.get(user_id);
+    const merged = { ...current, ...patch };
+    write(prefKey(user_id), merged);
+    return merged;
+  },
+};
+
 // ============ AUTH ============
 export const authApi = {
   login: (username, password) => {

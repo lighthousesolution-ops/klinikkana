@@ -20,6 +20,17 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-02) — Iteration 9 (Preferensi Ukuran Nota + Ekspor Laporan)
+- **Preferensi Ukuran Nota Default (per user)**: Section baru "Preferensi Cetak (per user)" di halaman Konfigurasi. User pilih default A4 / Thermal 58mm / Thermal 80mm; disimpan di `localStorage.kk_pref_{user_id}` via `preferencesApi`. Halaman Invoice auto-load mode default sesuai preferensi user aktif.
+- **Ekspor Laporan Excel & PDF** untuk keperluan pajak/akuntansi:
+  - Panel "Unduh Laporan Bulanan" di halaman Laporan dengan month picker + tombol Excel (emerald) dan PDF (rose).
+  - **Excel** (2 sheet: Ringkasan + Detail Tiket): 19 kolom termasuk tgl selesai, tiket, cabang, pelanggan, HP, perangkat, keluhan, teknisi, jasa, sparepart, total, DP, cicilan, sisa, HPP, laba, detail sparepart. Currency stored sebagai angka Excel-native. Total row auto.
+  - **PDF** (landscape A4, jsPDF + autotable): header toko, box ringkasan (tiket, pendapatan, HPP, laba), tabel detail dengan header biru + total row + page numbering.
+  - Filter otomatis pakai branch scope aktif (per cabang atau gabungan). Kalau tidak ada tiket selesai di bulan tersebut → toast warning.
+- **File**: `/app/frontend/src/lib/reportExport.js`.
+- Dependencies baru: `xlsx`, `jspdf`, `jspdf-autotable`.
+- Verifikasi: Excel 22.8KB, 3 tiket ter-list, Ringkasan sheet lengkap dengan margin 56.62%. PDF 16.4KB.
+
 ## Implemented (2026-02) — Iteration 8 (Nota Thermal 80mm + Teknisi)
 - **Nota Thermal 80mm** ditambahkan sebagai opsi cetak baru di halaman Invoice. Tombol pilihan sekarang: A4 · Thermal 58mm · Thermal 80mm.
 - **80mm version**: layout scaled up (fontSize base 11px, QR 100px, padding 5mm, logo 38px) — cocok untuk printer thermal POS standar 80mm.
@@ -114,7 +125,6 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 
 ## Backlog / Next Actions
 - P0: **Cari Pelanggan Cepat** — auto-fill data pelanggan saat mengetik nomor HP di form buat tiket baru (jika pelanggan sudah ada di sistem).
-- P1: **Ekspor Laporan** — download laporan bulanan sebagai Excel/PDF.
 - P1: **Notifikasi Stok** — email/WA ke admin ketika stok sparepart di bawah threshold.
 - P1: **Twilio WA Otomatis** — kirim WA otomatis saat status berubah ke "Ready" (butuh `integration_playbook_expert_v2`).
 - P2: Warranty/garansi tracking untuk servis selesai.

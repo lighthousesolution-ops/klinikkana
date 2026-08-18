@@ -2,9 +2,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { ArrowLeft, Printer, Smartphone } from 'lucide-react';
-import { repairsApi, customersApi, sparepartsApi, usersApi, settingsApi, computeTotal } from '@/lib/store';
+import { repairsApi, customersApi, sparepartsApi, usersApi, settingsApi, computeTotal, preferencesApi } from '@/lib/store';
 import { STATUS_LABELS } from '@/lib/mockData';
 import { formatIDR, formatDate, formatDateTime } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 /*
  * Invoice printer:
@@ -14,7 +15,9 @@ import { formatIDR, formatDate, formatDateTime } from '@/lib/utils';
 export default function InvoicePage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [mode, setMode] = useState('a4');
+  const { user } = useAuth();
+  // Load the user's saved default invoice size (a4 / thermal58 / thermal80).
+  const [mode, setMode] = useState(() => preferencesApi.get(user?.id).default_invoice_size || 'a4');
   const repair = repairsApi.get(id);
   const customer = repair ? customersApi.get(repair.customer_id) : null;
   const spareparts = sparepartsApi.list();
