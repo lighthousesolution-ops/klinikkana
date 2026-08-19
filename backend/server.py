@@ -104,6 +104,23 @@ class PublicRepairSnapshot(BaseModel):
     updated_at: Optional[str] = None
 
 
+@api_router.get("/public-sync/reviews")
+async def list_public_reviews():
+    """
+    Return every public_repairs snapshot that has a rating, so the admin
+    'Ulasan Pelanggan' page can display reviews submitted from any device
+    (including a customer's phone that only ever hit the public endpoint).
+    Must be declared BEFORE /public-sync/{ticket_no} so FastAPI doesn't
+    treat "reviews" as a ticket path parameter.
+    """
+    cursor = db.public_repairs.find(
+        {"rating": {"$gte": 1}},
+        {"_id": 0},
+    ).sort("rated_at", -1)
+    reviews = await cursor.to_list(500)
+    return {"reviews": reviews}
+
+
 @api_router.post("/public-sync/{ticket_no}")
 async def sync_public_repair(ticket_no: str, payload: PublicRepairSnapshot, only_if_new: bool = False):
     doc = payload.model_dump()
@@ -167,6 +184,49 @@ async def submit_public_rating(ticket_no: str, payload: PublicRatingIn):
         }},
     )
     return {"success": True, "rating": payload.rating, "review": review, "rated_at": now}
+
+
+class AdminReplyIn(BaseModel):
+    reply: Optional[str] = ""
+    admin_reply_by_name: Optional[str] = None
+
+
+@api_router.post("/public-sync/{ticket_no}/reply")
+async def submit_admin_reply(ticket_no: str, payload: AdminReplyIn):
+    """
+    Save an admin reply for a review. Deleting the reply is done by sending
+    an empty string. Used to keep server in sync when the admin acts on a
+    review that only exists server-side (customer rated cross-device).
+    """
+    text = (payload.reply or "").strip()
+    if len(text) > 500:
+        raise HTTPException(status_code=400, detail="reply_too_long")
+
+    existing = await db.public_repairs.find_one({"ticket_no": ticket_no})
+    if not existing:
+        raise HTTPException(status_code=404, detail="not_found")
+    if not existing.get("rating"):
+        raise HTTPException(status_code=400, detail="review_missing")
+
+    now = datetime.now(timezone.utc).isoformat()
+    if text:
+        await db.public_repairs.update_one(
+            {"ticket_no": ticket_no},
+            {"$set": {
+                "admin_reply": text,
+                "admin_reply_by_name": payload.admin_reply_by_name or "Admin",
+                "admin_reply_at": now,
+                "updated_at": now,
+            }},
+        )
+        return {"success": True, "admin_reply": text, "admin_reply_at": now}
+    else:
+        await db.public_repairs.update_one(
+            {"ticket_no": ticket_no},
+            {"$unset": {"admin_reply": "", "admin_reply_by_name": "", "admin_reply_at": ""},
+             "$set": {"updated_at": now}},
+        )
+        return {"success": True, "deleted": True}
 
 # Include the router in the main app
 app.include_router(api_router)

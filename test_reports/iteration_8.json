@@ -1,0 +1,19 @@
+{
+  "summary": "Verified fix for the reported bug 'ulasan pelanggan tidak terupdate setelah pelanggan memberi rating'. Backend: added tests for GET /api/public-sync/reviews and POST /api/public-sync/{ticket}/reply — 18/18 pytest cases pass. Frontend cross-device E2E: seeded a fresh KK-CROSS-* ticket server-side, submitted 5-star rating in an ISOLATED browser context (no admin localStorage), then logged in admin in the main context and confirmed the review appears in [data-testid=reviews-list] within the 8s polling window with correct customer name, ticket, 5 stars, and review text. Manual refresh via btn-refresh-reviews works. Admin reply from /reviews propagates to server (GET /api/public-sync/{ticket} shows admin_reply='Terima kasih atas ulasannya!' by 'Andi Wijaya') and to the customer's /status/{ticket} page (admin-reply-public block visible). Regression: existing rated tickets KK-2608-001, KK-2412-020, KK-2501-002 still render. RBAC: cashier sees NO reply buttons; technician cannot reach /reviews (redirected to /dashboard). PublicStatus regression: LUNAS badge, rating-form gating (hidden after rating), rating-thankyou card, and btn-refresh-status all present.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py: list_public_reviews sort by rated_at desc places docs with missing rated_at at unpredictable position; consider adding a compound sort key (rated_at desc, updated_at desc) to be defensive against legacy rows that were rated before rated_at was mirrored.",
+    "Reviews.jsx: the reply CTA is rendered inside the map by ReviewItem regardless of whether canReply is true for other roles — currently gated correctly, but consider centralising role-based rendering into a single conditional block near the top of ReviewItem for readability."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100% — cross-device propagation, admin reply, RBAC, and PublicStatus regression all pass"},
+  "seed_data_creation": "Created transient tickets in db.public_repairs: KK-CROSS-<ts>, TEST-REV-<ts>, TEST-NORATE-<ts>. All safe test data prefixed with TEST_/KK-CROSS-.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": false,
+  "test_credentials": "admin/admin123, kasir/kasir123, teknisi/teknisi123 (loaded from /app/memory/test_credentials.md)",
+  "context_for_next_testing_agent": "Cross-device review propagation bug is CONFIRMED FIXED. GET /api/public-sync/reviews is the source of truth; Reviews.jsx polls every 8s and merges server rows with local repairs. If retesting, seed a fresh ticket via POST /api/public-sync/{new_id} with status=picked_up, then POST rating from an isolated context — admin /reviews should show it within 10s. Test data prefixes TEST-*, KK-CROSS-* remain in db.public_repairs.",
+  "rca_of_the_issue": "Original bug: admin used localStorage-only for reviews; a rating submitted on a customer's device never touched the admin store. Fix: server-authoritative list endpoint GET /api/public-sync/reviews + client-side polling in Reviews.jsx + admin reply mirrored to server via POST /api/public-sync/{ticket}/reply. Verified end-to-end."
+}

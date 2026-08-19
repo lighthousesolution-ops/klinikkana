@@ -129,3 +129,67 @@ class TestPublicRating:
         r = client.post(f"{BASE_URL}/api/public-sync/NONEXISTENT_TKT/rating",
                         json={"rating": 5})
         assert r.status_code == 404
+
+
+# ---- Reviews list + admin reply ----
+class TestReviewsAndReply:
+    ticket = f"TEST-REV-{int(time.time())}"
+
+    def test_setup_and_rate(self, client):
+        # create a picked_up snapshot then rate it
+        r = client.post(f"{BASE_URL}/api/public-sync/{self.ticket}",
+                        json=_snapshot(self.ticket, "picked_up", customer_name="TEST Reviewer"))
+        assert r.status_code == 200
+        r = client.post(f"{BASE_URL}/api/public-sync/{self.ticket}/rating",
+                        json={"rating": 4, "review": "TEST reviews-endpoint check"})
+        assert r.status_code == 200
+
+    def test_list_reviews_includes_new(self, client):
+        r = client.get(f"{BASE_URL}/api/public-sync/reviews")
+        assert r.status_code == 200
+        body = r.json()
+        assert "reviews" in body and isinstance(body["reviews"], list)
+        tickets = [x["ticket_no"] for x in body["reviews"]]
+        assert self.ticket in tickets
+        row = next(x for x in body["reviews"] if x["ticket_no"] == self.ticket)
+        assert row["rating"] == 4
+        assert row["review"] == "TEST reviews-endpoint check"
+        assert "_id" not in row
+
+    def test_reply_requires_existing_rating(self, client):
+        # ticket without any rating
+        blank_ticket = f"TEST-NORATE-{int(time.time())}"
+        client.post(f"{BASE_URL}/api/public-sync/{blank_ticket}",
+                    json=_snapshot(blank_ticket, "picked_up"))
+        r = client.post(f"{BASE_URL}/api/public-sync/{blank_ticket}/reply",
+                        json={"reply": "hi", "admin_reply_by_name": "Admin"})
+        assert r.status_code == 400
+
+    def test_reply_missing_ticket_404(self, client):
+        r = client.post(f"{BASE_URL}/api/public-sync/NOSUCH_TKT_XYZ/reply",
+                        json={"reply": "hi"})
+        assert r.status_code == 404
+
+    def test_submit_and_persist_reply(self, client):
+        r = client.post(f"{BASE_URL}/api/public-sync/{self.ticket}/reply",
+                        json={"reply": "TEST admin reply text", "admin_reply_by_name": "Andi Wijaya"})
+        assert r.status_code == 200
+        assert r.json().get("success") is True
+        g = client.get(f"{BASE_URL}/api/public-sync/{self.ticket}").json()
+        assert g["admin_reply"] == "TEST admin reply text"
+        assert g["admin_reply_by_name"] == "Andi Wijaya"
+        assert g["admin_reply_at"]
+
+    def test_empty_reply_deletes(self, client):
+        r = client.post(f"{BASE_URL}/api/public-sync/{self.ticket}/reply",
+                        json={"reply": ""})
+        assert r.status_code == 200
+        assert r.json().get("deleted") is True
+        g = client.get(f"{BASE_URL}/api/public-sync/{self.ticket}").json()
+        assert g.get("admin_reply") in (None, "")
+        assert not g.get("admin_reply_at")
+
+    def test_reply_too_long(self, client):
+        r = client.post(f"{BASE_URL}/api/public-sync/{self.ticket}/reply",
+                        json={"reply": "x" * 501})
+        assert r.status_code == 400

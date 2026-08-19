@@ -20,6 +20,16 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-02) — Iteration 10 (Fix: Ulasan Cross-Device Muncul di Admin)
+- **User bug FIXED**: "setelah pelanggan memberikan ulasan tidak terupdate di ulasan pelanggan". Root cause: ulasan yang di-submit dari device pelanggan (via `/api/public-sync/{ticket}/rating`) hanya masuk ke Mongo — admin `/reviews` baca localStorage saja.
+- **Endpoint baru**:
+  - `GET /api/public-sync/reviews` — list semua tiket yang punya rating (source of truth cross-device).
+  - `POST /api/public-sync/{ticket_no}/reply` — admin balasan cross-device (kalau tiket tidak ada di localStorage admin). Body kosong = hapus balasan.
+- **`/app/frontend/src/lib/publicSync.js`**: `fetchAllReviews`, `submitAdminReplyServer`.
+- **`Reviews.jsx`**: fetch server tiap 8 detik + on-focus + tombol manual "Muat ulang". Merge: server otoritatif untuk rating/review/admin_reply, di-overlay ke local repairs per ticket_no. Review yang HANYA ada di server tetap tampil (dengan data customer dari server snapshot).
+- **Reply admin sekarang double-write**: local (best-effort, skip kalau tiket tidak lokal) + server (selalu) → balasan langsung muncul di halaman publik pelanggan dan di sesi admin lain.
+- **Testing agent verifikasi**: 18/18 backend pytest + full frontend E2E (cross-device propagation, admin reply cross-device, RBAC, LUNAS/rating gate regression) — `iteration_8.json`.
+
 ## Implemented (2026-02) — Iteration 9 (Preferensi Ukuran Nota + Ekspor Laporan)
 - **Preferensi Ukuran Nota Default (per user)**: Section baru "Preferensi Cetak (per user)" di halaman Konfigurasi. User pilih default A4 / Thermal 58mm / Thermal 80mm; disimpan di `localStorage.kk_pref_{user_id}` via `preferencesApi`. Halaman Invoice auto-load mode default sesuai preferensi user aktif.
 - **Ekspor Laporan Excel & PDF** untuk keperluan pajak/akuntansi:

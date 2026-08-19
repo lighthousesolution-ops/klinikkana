@@ -80,6 +80,23 @@ export async function fetchPublicRepair(ticket_no) {
   }
 }
 
+export async function fetchAllReviews() {
+  try {
+    const { data } = await api.get('/public-sync/reviews');
+    return data?.reviews || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+export async function submitAdminReplyServer(ticket_no, reply, admin_reply_by_name) {
+  const { data } = await api.post(`/public-sync/${encodeURIComponent(ticket_no)}/reply`, {
+    reply: reply || '',
+    admin_reply_by_name: admin_reply_by_name || 'Admin',
+  });
+  return data;
+}
+
 export async function submitPublicRating(ticket_no, rating, review) {
   const { data } = await api.post(`/public-sync/${encodeURIComponent(ticket_no)}/rating`, {
     rating,

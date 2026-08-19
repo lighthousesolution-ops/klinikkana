@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Star, MessageSquare, TrendingUp, Award, Search, ChevronRight, Reply, Edit3, Trash2, Send, X } from 'lucide-react';
+import { Star, MessageSquare, TrendingUp, Award, Search, ChevronRight, Reply, Edit3, Trash2, Send, X, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { repairsApi, customersApi, usersApi } from '@/lib/store';
+import { fetchAllReviews, submitAdminReplyServer } from '@/lib/publicSync';
 import { useBranch } from '@/contexts/BranchContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDate } from '@/lib/utils';
@@ -15,22 +16,87 @@ export default function ReviewsPage() {
   const [filter, setFilter] = useState('all'); // all, 5, 4, 3, 2, 1
   const [query, setQuery] = useState('');
   const [tick, setTick] = useState(0);
+  const [serverReviews, setServerReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
   const refresh = () => setTick((t) => t + 1);
+
+  // Fetch server-side reviews (source of truth for ratings submitted from
+  // customer devices that never touch the admin localStorage).
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      const list = await fetchAllReviews();
+      if (mounted) {
+        setServerReviews(list);
+        setLoading(false);
+      }
+    };
+    load();
+    // Poll so new customer ratings appear without a manual refresh.
+    const interval = setInterval(load, 8000);
+    const onFocus = () => load();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick]);
 
   const users = useMemo(() => usersApi.list(), [tick]);
   const userMap = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u])), [users]);
 
+  // Merge: server-side reviews (authoritative for rating/review/admin_reply)
+  // overlay onto local repairs by ticket_no. If server has a review for a
+  // repair the admin's localStorage doesn't know about (cross-device rating),
+  // we synthesize a minimal review row from server data so nothing is lost.
   const allReviews = useMemo(() => {
-    let items = repairsApi.withReviews();
-    if (currentBranchId) items = items.filter((r) => r.branch_id === currentBranchId);
-    return items
-      .map((r) => ({
+    const local = repairsApi.list();
+    const localByTicket = Object.fromEntries(local.map((r) => [r.ticket_no, r]));
+
+    const merged = new Map();
+
+    // 1) Start with server reviews (authoritative).
+    serverReviews.forEach((s) => {
+      const l = localByTicket[s.ticket_no];
+      merged.set(s.ticket_no, {
+        // Local metadata (id, branch, etc.) — with server rating overlay.
+        ...(l || {}),
+        id: l?.id || `srv-${s.ticket_no}`,
+        ticket_no: s.ticket_no,
+        branch_id: l?.branch_id || null,
+        device_brand: l?.device_brand || s.device_brand,
+        device_model: l?.device_model || s.device_model,
+        // Rating fields from server (authoritative).
+        rating: s.rating,
+        review: s.review,
+        rated_at: s.rated_at,
+        admin_reply: s.admin_reply,
+        admin_reply_at: s.admin_reply_at,
+        admin_reply_by_name: s.admin_reply_by_name,
+        // Customer: prefer local (has address), fall back to server snapshot.
+        customer: l
+          ? customersApi.get(l.customer_id)
+          : { name: s.customer_name, phone: s.customer_phone },
+        __fromServer: true,
+      });
+    });
+
+    // 2) Include any purely-local rated repairs not yet on the server
+    //    (rare, but keeps parity if server sync ever fails).
+    local.filter((r) => r.rating && !merged.has(r.ticket_no)).forEach((r) => {
+      merged.set(r.ticket_no, {
         ...r,
         customer: customersApi.get(r.customer_id),
-      }))
-      .sort((a, b) => new Date(b.rated_at || 0) - new Date(a.rated_at || 0));
+      });
+    });
+
+    let items = Array.from(merged.values());
+    if (currentBranchId) items = items.filter((r) => !r.branch_id || r.branch_id === currentBranchId);
+    return items.sort((a, b) => new Date(b.rated_at || 0) - new Date(a.rated_at || 0));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentBranchId, tick]);
+  }, [currentBranchId, serverReviews, tick]);
 
   const stats = useMemo(() => {
     if (allReviews.length === 0) {
@@ -63,10 +129,19 @@ export default function ReviewsPage() {
   return (
     <div className="space-y-6 animate-fade-in" data-testid="reviews-page">
       {/* Title */}
-      <div>
+      <div className="flex items-center justify-between">
         <div className="inline-block bg-primary text-primary-foreground px-4 py-2 rounded-md">
           <h1 className="font-display text-xl font-bold tracking-tight">Ulasan Pelanggan</h1>
         </div>
+        <button
+          onClick={refresh}
+          data-testid="btn-refresh-reviews"
+          title="Muat ulang ulasan"
+          className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-border hover:bg-accent text-sm font-medium transition-colors"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          Muat ulang
+        </button>
       </div>
 
       {/* Stats */}
@@ -217,7 +292,11 @@ function ReviewItem({ review: r, canReply, userMap, onChanged }) {
   const [saving, setSaving] = useState(false);
 
   const hasReply = Boolean(r.admin_reply);
-  const replyAuthor = r.admin_reply_by ? userMap[r.admin_reply_by]?.full_name : null;
+  // Reply author: prefer local user lookup (has full user), fall back to
+  // the server-mirrored display name for reviews that only exist server-side.
+  const replyAuthor = r.admin_reply_by
+    ? userMap[r.admin_reply_by]?.full_name
+    : r.admin_reply_by_name;
 
   const openEditor = () => {
     setText(r.admin_reply || '');
@@ -227,29 +306,43 @@ function ReviewItem({ review: r, canReply, userMap, onChanged }) {
     setEditing(false);
     setText(r.admin_reply || '');
   };
-  const submit = () => {
+  const submit = async () => {
     setSaving(true);
     try {
-      // We need current user id to attribute the reply
       const currentUser = JSON.parse(localStorage.getItem('kk_session') || 'null');
-      repairsApi.replyReview(r.id, text, currentUser?.user_id || null);
+      const authorName = userMap[currentUser?.user_id]?.full_name || 'Admin';
+      // Local mutation (best-effort). Failures are OK when the repair only
+      // exists on the server (customer rated on a device the admin never
+      // touched).
+      try {
+        repairsApi.replyReview(r.id, text, currentUser?.user_id || null);
+      } catch (_) {
+        // Server-only review — skip local write, sync directly below.
+      }
+      // Always mirror to the server so the customer sees the reply on the
+      // public status page and other admin sessions see it in the list.
+      await submitAdminReplyServer(r.ticket_no, text, authorName);
       toast.success(hasReply ? 'Balasan diperbarui' : 'Balasan dikirim ke pelanggan');
       setEditing(false);
       onChanged?.();
     } catch (err) {
-      toast.error(err.message || 'Gagal menyimpan balasan');
+      toast.error(err?.response?.data?.detail || err.message || 'Gagal menyimpan balasan');
     } finally {
       setSaving(false);
     }
   };
-  const remove = () => {
+  const remove = async () => {
     if (!window.confirm('Hapus balasan admin untuk ulasan ini?')) return;
+    setSaving(true);
     try {
-      repairsApi.deleteReply(r.id);
+      try { repairsApi.deleteReply(r.id); } catch (_) {}
+      await submitAdminReplyServer(r.ticket_no, '', '');
       toast.success('Balasan dihapus');
       onChanged?.();
     } catch (err) {
-      toast.error(err.message || 'Gagal menghapus balasan');
+      toast.error(err?.response?.data?.detail || err.message || 'Gagal menghapus balasan');
+    } finally {
+      setSaving(false);
     }
   };
 
