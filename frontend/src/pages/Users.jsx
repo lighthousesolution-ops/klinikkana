@@ -1,10 +1,24 @@
 import React, { useState } from 'react';
-import { Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { usersApi, branchesApi } from '@/lib/store';
 import { ROLE_LABELS } from '@/lib/mockData';
 import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+
+// Password policy: 6-20 chars, at least one uppercase, one lowercase, one
+// punctuation. Punctuation is anything that isn't a letter or digit.
+const PWD_RULES = [
+  { key: 'len',  label: 'Panjang 6 – 20 karakter',        test: (p) => p.length >= 6 && p.length <= 20 },
+  { key: 'up',   label: 'Ada huruf besar (A-Z)',           test: (p) => /[A-Z]/.test(p) },
+  { key: 'low',  label: 'Ada huruf kecil (a-z)',           test: (p) => /[a-z]/.test(p) },
+  { key: 'punc', label: 'Ada tanda baca (mis. ! @ # . ?)', test: (p) => /[^A-Za-z0-9\s]/.test(p) },
+];
+
+function validatePassword(p) {
+  const failed = PWD_RULES.filter((r) => !r.test(p || ''));
+  return { ok: failed.length === 0, failed };
+}
 
 function UserModal({ open, onClose, initial, onSaved }) {
   const [form, setForm] = useState(initial || { username: '', password: '', full_name: '', role: 'technician', phone: '', branch_id: null });
@@ -15,10 +29,20 @@ function UserModal({ open, onClose, initial, onSaved }) {
   const submit = (e) => {
     e.preventDefault();
     try {
+      // Password policy: required for new users, optional (but validated
+      // if provided) for edits.
+      const pwdProvided = Boolean(form.password);
+      if (!initial?.id && !pwdProvided) return toast.error('Password wajib diisi');
+      if (pwdProvided) {
+        const { ok, failed } = validatePassword(form.password);
+        if (!ok) return toast.error(`Password belum memenuhi: ${failed.map((f) => f.label).join(', ')}`);
+      }
       if (initial?.id) {
-        usersApi.update(initial.id, form);
+        // Only send password if the admin actually typed a new one.
+        const payload = { ...form };
+        if (!pwdProvided) delete payload.password;
+        usersApi.update(initial.id, payload);
       } else {
-        if (!form.password) return toast.error('Password wajib diisi');
         usersApi.create(form);
       }
       toast.success(initial?.id ? 'User diperbarui' : 'User ditambahkan');
@@ -26,6 +50,9 @@ function UserModal({ open, onClose, initial, onSaved }) {
       onClose();
     } catch (err) { toast.error(err.message); }
   };
+
+  // Live checklist state (shown only when the field has focus or has content).
+  const pwdChecks = PWD_RULES.map((r) => ({ ...r, pass: r.test(form.password || '') }));
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-black/50 animate-fade-in" onClick={onClose}>
@@ -44,7 +71,21 @@ function UserModal({ open, onClose, initial, onSaved }) {
           <div>
             <label className="text-sm font-medium mb-1.5 block">Password {initial?.id ? '(kosongkan jika tidak diubah)' : '*'}</label>
             <input type="password" data-testid="user-password" value={form.password || ''} onChange={(e) => setForm({ ...form, password: e.target.value })}
+              maxLength={20}
               className="w-full h-10 px-3 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/40" />
+            {(form.password || !initial?.id) && (
+              <ul className="mt-2 space-y-1" data-testid="pwd-rules">
+                {pwdChecks.map((r) => (
+                  <li key={r.key}
+                    data-testid={`pwd-rule-${r.key}`}
+                    data-pass={r.pass ? 'true' : 'false'}
+                    className={`flex items-center gap-1.5 text-[11px] ${r.pass ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                    {r.pass ? <Check className="h-3 w-3 shrink-0" /> : <X className="h-3 w-3 shrink-0" />}
+                    <span>{r.label}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <div className="sm:col-span-2">
             <label className="text-sm font-medium mb-1.5 block">Nama Lengkap *</label>

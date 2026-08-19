@@ -51,7 +51,7 @@ function App() {
               <Route path="/repairs/:id" element={<RepairDetail />} />
 
               <Route path="/customers" element={
-                <ProtectedRoute roles={['admin', 'cashier']}><CustomersPage /></ProtectedRoute>
+                <ProtectedRoute roles={['admin', 'cashier', 'technician']}><CustomersPage /></ProtectedRoute>
               } />
 
               <Route path="/spareparts" element={

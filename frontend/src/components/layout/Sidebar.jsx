@@ -9,7 +9,7 @@ import { settingsApi } from '@/lib/store';
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'technician', 'cashier'] },
   { to: '/repairs', label: 'Servis', icon: Wrench, roles: ['admin', 'technician', 'cashier'] },
-  { to: '/customers', label: 'Pelanggan', icon: Users, roles: ['admin', 'cashier'] },
+  { to: '/customers', label: 'Pelanggan', icon: Users, roles: ['admin', 'cashier', 'technician'] },
   { to: '/spareparts', label: 'Sparepart', icon: Package, roles: ['admin', 'technician'] },
   { to: '/reports', label: 'Laporan', icon: BarChart3, roles: ['admin'] },
   { to: '/reviews', label: 'Ulasan Pelanggan', icon: Star, roles: ['admin', 'cashier'] },

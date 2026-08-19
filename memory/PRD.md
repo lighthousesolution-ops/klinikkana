@@ -20,6 +20,16 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-02) — Iteration 11 (Menu Pelanggan Teknisi + Password Policy)
+- **Menu Pelanggan untuk Teknisi**: Route `/customers` dan sidebar link "Pelanggan" sekarang bisa diakses role `technician` (selain `admin` dan `cashier`). Teknisi kini bisa lihat data pelanggan tanpa harus buka repair detail.
+- **Password Policy di Kelola User**: `/app/frontend/src/pages/Users.jsx` sekarang enforce aturan berikut saat buat user baru / ganti password:
+  - Panjang **6 – 20 karakter**
+  - Wajib ada **huruf besar** (A-Z)
+  - Wajib ada **huruf kecil** (a-z)
+  - Wajib ada **tanda baca** (non-alphanumeric, mis. `! @ # . ?`)
+- **UX**: Live checklist di bawah field password dengan ceklis hijau real-time saat mengetik. Toast error saat submit dengan detail aturan yang belum terpenuhi. Edit user tetap boleh kosongkan password (tidak diubah).
+- Verifikasi: Teknisi login → Pelanggan tampil di sidebar → klik → `/customers` load. Modal user password: `abc` gagal (3/4 aturan), `GoodPass!23` lolos semua.
+
 ## Implemented (2026-02) — Iteration 10 (Fix: Ulasan Cross-Device Muncul di Admin)
 - **User bug FIXED**: "setelah pelanggan memberikan ulasan tidak terupdate di ulasan pelanggan". Root cause: ulasan yang di-submit dari device pelanggan (via `/api/public-sync/{ticket}/rating`) hanya masuk ke Mongo — admin `/reviews` baca localStorage saja.
 - **Endpoint baru**:
