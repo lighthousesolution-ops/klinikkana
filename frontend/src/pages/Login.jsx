@@ -61,16 +61,16 @@ export default function LoginPage() {
             )}
             <div>
               <div className="font-display font-bold text-xl tracking-tight">{s.shop_name}</div>
-              <div className="overline text-white/70">{s.shop_tagline || 'Manajemen Servis HP'}</div>
+              <div className="text-xs text-white/70 mt-0.5">{s.shop_tagline || 'Manajemen Servis HP'}</div>
             </div>
           </div>
 
           <div className="space-y-6">
             <h1 className="font-display text-4xl xl:text-5xl font-bold tracking-tight leading-[1.05]">
-              Kelola bengkel HP<br />dengan presisi klinis.
+              Servis HP jadi rapi,<br />pelanggan senang, laba jelas.
             </h1>
             <p className="text-white/80 text-lg max-w-lg leading-relaxed">
-              Tiket servis, sparepart, pelanggan, dan laporan keuangan — semua dalam satu dashboard yang cepat, jelas, dan siap tempur.
+              Kelola tiket servis, pelanggan, sparepart, dan laporan keuangan cabang dari satu dashboard — cepat, ringkas, dan siap dipakai kasir hari ini.
             </p>
             <div className="grid grid-cols-3 gap-4 pt-4 max-w-lg">
               {[
@@ -78,8 +78,8 @@ export default function LoginPage() {
                 { k: 'Sparepart', v: 'Realtime' },
                 { k: 'Notifikasi', v: 'WhatsApp' },
               ].map((s) => (
-                <div key={s.k} className="border-l-2 border-white/30 pl-3">
-                  <div className="overline text-white/60">{s.k}</div>
+                <div key={s.k}>
+                  <div className="text-xs text-white/60">{s.k}</div>
                   <div className="font-display font-semibold text-lg">{s.v}</div>
                 </div>
               ))}
@@ -101,12 +101,12 @@ export default function LoginPage() {
             )}
             <div>
               <div className="font-display font-bold">{s.shop_name}</div>
-              <div className="overline text-muted-foreground">{s.shop_tagline}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{s.shop_tagline}</div>
             </div>
           </div>
 
           <div>
-            <div className="overline text-muted-foreground mb-2">Selamat datang</div>
+            <div className="text-sm text-muted-foreground mb-2">Selamat datang</div>
             <h2 className="font-display text-3xl font-bold tracking-tight">Masuk ke akun Anda</h2>
             <p className="text-muted-foreground mt-2 text-sm">Gunakan kredensial staf Anda untuk melanjutkan.</p>
           </div>
@@ -147,8 +147,8 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="border-t border-border pt-6">
-            <div className="overline text-muted-foreground mb-3">Akun demo — klik untuk isi otomatis</div>
+          <div className="pt-2">
+            <div className="text-sm text-muted-foreground mb-3">Akun demo — klik untuk isi otomatis</div>
             <div className="grid grid-cols-3 gap-2">
               {DEMO.map((d) => (
                 <button
