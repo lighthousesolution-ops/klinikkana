@@ -20,6 +20,16 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-02) — Iteration 12 (Reset Password Sendiri via Profil)
+- **Halaman Profil `/profile`** (semua role: admin, teknisi, kasir).
+  - Identity card: avatar, nama, username, role badge, cabang, telepon, tanggal dibuat.
+  - Form ganti password: input Password Lama + Password Baru + Ulangi Password Baru; toggle show/hide password; disable submit hingga semua syarat terpenuhi dan konfirmasi cocok.
+  - Password policy sama dengan Kelola User (6-20 char, uppercase, lowercase, tanda baca) — live checklist hijau real-time.
+  - Setelah berhasil ganti → toast + **auto-logout paksa** (redirect ke login) supaya user login ulang dengan password baru.
+- **Akses**: klik avatar/nama di footer sidebar untuk buka `/profile` (tombol jadi navigable NavLink).
+- **Backend**: `authApi.changeOwnPassword(current, next)` di `/app/frontend/src/lib/store.js` — verifikasi password lama, tolak jika sama dengan baru, update dengan timestamp `password_changed_at`.
+- Verifikasi Playwright: (1) kasir login → klik avatar → /profile, (2) input password baru "GoodPass!23" → 4/4 aturan hijau, (3) submit dengan password lama benar → auto-logout, (4) login kembali dengan password baru → sukses, (5) submit disabled saat password baru tidak memenuhi aturan.
+
 ## Implemented (2026-02) — Iteration 11 (Menu Pelanggan Teknisi + Password Policy)
 - **Menu Pelanggan untuk Teknisi**: Route `/customers` dan sidebar link "Pelanggan" sekarang bisa diakses role `technician` (selain `admin` dan `cashier`). Teknisi kini bisa lihat data pelanggan tanpa harus buka repair detail.
 - **Password Policy di Kelola User**: `/app/frontend/src/pages/Users.jsx` sekarang enforce aturan berikut saat buat user baru / ganti password:

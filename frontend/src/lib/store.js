@@ -175,6 +175,19 @@ export const authApi = {
     const user = users.find((u) => u.id === session.user_id);
     return user ? { ...user, password: undefined } : null;
   },
+  changeOwnPassword: (currentPassword, newPassword) => {
+    const session = read(KEYS.session, null);
+    if (!session || session.exp < Date.now()) throw new Error('Sesi kadaluarsa, silakan login ulang');
+    const users = read(KEYS.users, []);
+    const idx = users.findIndex((u) => u.id === session.user_id);
+    if (idx === -1) throw new Error('User tidak ditemukan');
+    if (users[idx].password !== currentPassword) throw new Error('Password lama tidak cocok');
+    if (currentPassword === newPassword) throw new Error('Password baru harus berbeda dari lama');
+    users[idx].password = newPassword;
+    users[idx].password_changed_at = new Date().toISOString();
+    write(KEYS.users, users);
+    return { ...users[idx], password: undefined };
+  },
 };
 
 // ============ USERS ============

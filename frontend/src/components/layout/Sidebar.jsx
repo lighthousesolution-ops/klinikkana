@@ -79,15 +79,23 @@ export default function Sidebar({ onNavigate }) {
       </nav>
 
       <div className="border-t border-sidebar-border p-4 space-y-3">
-        <div className="flex items-center gap-3">
+        <NavLink
+          to="/profile"
+          onClick={onNavigate}
+          data-testid="nav-profile"
+          className={({ isActive }) => cn(
+            'flex items-center gap-3 rounded-md p-2 -m-2 transition-colors',
+            isActive ? 'bg-sidebar-active/70' : 'hover:bg-sidebar-hover'
+          )}
+        >
           <div className="h-9 w-9 rounded-full bg-sidebar-active text-white grid place-items-center font-semibold">
             {user?.full_name?.charAt(0) || 'U'}
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-sm font-semibold truncate" data-testid="sidebar-user-name">{user?.full_name}</div>
-            <div className="overline text-sidebar-muted truncate">{ROLE_LABELS[user?.role]}</div>
+            <div className="text-xs text-sidebar-muted truncate">{ROLE_LABELS[user?.role]}</div>
           </div>
-        </div>
+        </NavLink>
         <button
           onClick={handleLogout}
           data-testid="btn-logout"
