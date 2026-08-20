@@ -1,0 +1,40 @@
+# React SPA — kirim semua path yang bukan file/folder existing ke index.html
+# Wajib untuk react-router agar /status/:ticket_no, /dashboard, /reviews, dsb tetap bekerja.
+Options -MultiViews
+RewriteEngine On
+
+# Kalau request pointing ke file/folder yang ada, sajikan langsung
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Semua yang lain → index.html (React akan handle routing di client)
+RewriteRule ^ index.html [L]
+
+# Cache aset statis 1 tahun (file dengan hash sudah cache-busting sendiri)
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css                "access plus 1 year"
+    ExpiresByType application/javascript  "access plus 1 year"
+    ExpiresByType image/png               "access plus 1 year"
+    ExpiresByType image/jpeg              "access plus 1 year"
+    ExpiresByType image/svg+xml           "access plus 1 year"
+    ExpiresByType image/webp              "access plus 1 year"
+    ExpiresByType font/woff2              "access plus 1 year"
+</IfModule>
+
+# Gzip compression
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json
+</IfModule>
+
+# Security headers dasar
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    # index.html jangan di-cache biar user selalu dapet versi terbaru
+    <FilesMatch "^index\.html$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+    </FilesMatch>
+</IfModule>
