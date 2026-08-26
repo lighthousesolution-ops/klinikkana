@@ -10,10 +10,9 @@ require_once __DIR__ . '/../../includes/response.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../config/database.php';
 
-$user = require_auth();
-if (($user['role'] ?? '') !== 'admin') json_error('Hanya admin yang dapat membalas ulasan', 403);
+$user = require_role(['admin']);
 
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$id = isset($_GET['id']) ? trim((string)$_GET['id']) : '';
 if (!$id) json_error('id repair wajib', 400);
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -34,7 +33,7 @@ if ($method === 'POST') {
     $stmt = $pdo->prepare('UPDATE repairs SET admin_reply = ?, admin_reply_by = ?, admin_reply_at = NOW() WHERE id = ?');
     $stmt->execute([$reply, $user['id'], $id]);
 
-    json_response(['success' => true, 'admin_reply' => $reply, 'admin_reply_by' => (int)$user['id']]);
+    json_response(['success' => true, 'admin_reply' => $reply, 'admin_reply_by' => (string)$user['id']]);
 }
 
 if ($method === 'DELETE') {

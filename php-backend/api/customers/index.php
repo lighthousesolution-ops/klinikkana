@@ -8,7 +8,7 @@ require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../config/database.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$id = isset($_GET['id']) ? trim((string)$_GET['id']) : '';
 
 switch ($method) {
     case 'GET': {
@@ -24,18 +24,18 @@ switch ($method) {
         json_response($rows);
     }
     case 'POST': {
-        require_role(['admin', 'cashier']);
+        require_role(['admin', 'cashier', 'technician']);
         $b = json_body();
         if (empty($b['name']) || empty($b['phone'])) json_error('Nama dan telepon wajib diisi');
-        $stmt = db()->prepare('INSERT INTO customers (name, phone, address, notes) VALUES (?,?,?,?)');
-        $stmt->execute([$b['name'], $b['phone'], $b['address'] ?? '', $b['notes'] ?? '']);
-        $newId = db()->lastInsertId();
+        $newId = !empty($b['id']) ? trim((string)$b['id']) : uniqid('c_', true);
+        $stmt = db()->prepare('INSERT INTO customers (id, name, phone, address, notes, branch_id) VALUES (?,?,?,?,?,?)');
+        $stmt->execute([$newId, $b['name'], $b['phone'], $b['address'] ?? '', $b['notes'] ?? '', $b['branch_id'] ?? null]);
         $stmt = db()->prepare('SELECT * FROM customers WHERE id = ?');
         $stmt->execute([$newId]);
         json_response($stmt->fetch(), 201);
     }
     case 'PUT': {
-        require_role(['admin', 'cashier']);
+        require_role(['admin', 'cashier', 'technician']);
         if (!$id) json_error('id wajib');
         $b = json_body();
         $stmt = db()->prepare('UPDATE customers SET name=?, phone=?, address=?, notes=? WHERE id=?');

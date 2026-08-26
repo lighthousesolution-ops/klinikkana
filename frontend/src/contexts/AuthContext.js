@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { authApi, ensureSeed } from '@/lib/store';
+import { IS_PHP } from '@/lib/dataMode';
+import { phpAuthApi } from '@/lib/apiPhp';
 
 const AuthContext = createContext(null);
 
@@ -9,18 +11,27 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     ensureSeed();
-    const u = authApi.currentUser();
+    // In PHP mode, prefer the cached user from a previous PHP login;
+    // fall back to the local session for the mock data mode.
+    const u = IS_PHP ? (phpAuthApi.currentUser() || authApi.currentUser()) : authApi.currentUser();
     setUser(u);
     setLoading(false);
   }, []);
 
-  const login = (username, password) => {
+  const login = async (username, password) => {
+    if (IS_PHP) {
+      // Real PHP backend: token + user come from MySQL.
+      const { user } = await phpAuthApi.login(username, password);
+      setUser(user);
+      return user;
+    }
     const { user } = authApi.login(username, password);
     setUser(user);
     return user;
   };
 
   const logout = () => {
+    if (IS_PHP) phpAuthApi.logout();
     authApi.logout();
     setUser(null);
   };

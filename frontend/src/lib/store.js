@@ -1,7 +1,9 @@
 // LocalStorage-based data store for immediate browser testing.
-// Mimics a REST API so switching to the PHP backend later is trivial.
+// When REACT_APP_DATA_MODE=php, every mutation is also mirrored to the PHP
+// backend via phpMirror (write-through) so MySQL on the VPS stays in sync.
 
 import { SEED_USERS, SEED_CUSTOMERS, SEED_SPAREPARTS, SEED_REPAIRS, SEED_BRANCHES } from './mockData';
+import { phpMirror } from './phpMirror';
 
 const KEYS = {
   users: 'kk_users',
@@ -131,6 +133,7 @@ export const settingsApi = {
     const current = settingsApi.get();
     const merged = { ...current, ...patch };
     write(KEYS.settings, merged);
+    phpMirror.settings.update(patch);
     return merged;
   },
   reset: () => { write(KEYS.settings, DEFAULT_SETTINGS); return DEFAULT_SETTINGS; },
@@ -186,6 +189,7 @@ export const authApi = {
     users[idx].password = newPassword;
     users[idx].password_changed_at = new Date().toISOString();
     write(KEYS.users, users);
+    phpMirror.user.upsert(users[idx]);
     return { ...users[idx], password: undefined };
   },
 };
@@ -199,6 +203,7 @@ export const usersApi = {
     const user = { id: uid('u'), created_at: new Date().toISOString(), ...data };
     users.push(user);
     write(KEYS.users, users);
+    phpMirror.user.upsert({ ...user, __isNew: true });
     return { ...user, password: undefined };
   },
   update: (id, data) => {
@@ -208,11 +213,13 @@ export const usersApi = {
     if (!data.password) delete data.password;
     users[idx] = { ...users[idx], ...data };
     write(KEYS.users, users);
+    phpMirror.user.upsert(users[idx]);
     return { ...users[idx], password: undefined };
   },
   delete: (id) => {
     const users = read(KEYS.users, []).filter((u) => u.id !== id);
     write(KEYS.users, users);
+    phpMirror.user.remove(id);
   },
 };
 
@@ -243,6 +250,7 @@ export const customersApi = {
     const item = { id: uid('c'), created_at: new Date().toISOString(), branch_id, ...data };
     customers.push(item);
     write(KEYS.customers, customers);
+    phpMirror.customer.upsert({ ...item, __isNew: true });
     return item;
   },
   update: (id, data) => {
@@ -255,11 +263,13 @@ export const customersApi = {
     }
     customers[idx] = { ...customers[idx], ...data };
     write(KEYS.customers, customers);
+    phpMirror.customer.upsert(customers[idx]);
     return customers[idx];
   },
   delete: (id) => {
     const customers = read(KEYS.customers, []).filter((c) => c.id !== id);
     write(KEYS.customers, customers);
+    phpMirror.customer.remove(id);
   },
 };
 
@@ -299,6 +309,7 @@ export const sparepartsApi = {
     const item = { id: uid('sp'), branch_id, ...data };
     items.push(item);
     write(KEYS.spareparts, items);
+    phpMirror.sparepart.upsert({ ...item, __isNew: true });
     return item;
   },
   update: (id, data) => {
@@ -307,11 +318,13 @@ export const sparepartsApi = {
     if (idx === -1) throw new Error('Sparepart tidak ditemukan');
     items[idx] = { ...items[idx], ...data };
     write(KEYS.spareparts, items);
+    phpMirror.sparepart.upsert(items[idx]);
     return items[idx];
   },
   delete: (id) => {
     const items = read(KEYS.spareparts, []).filter((s) => s.id !== id);
     write(KEYS.spareparts, items);
+    phpMirror.sparepart.remove(id);
   },
   adjustStock: (id, delta, opts = {}) => {
     const items = read(KEYS.spareparts, []);
@@ -320,6 +333,7 @@ export const sparepartsApi = {
       const before = items[idx].stock;
       items[idx].stock = Math.max(0, before + delta);
       write(KEYS.spareparts, items);
+      phpMirror.sparepart.upsert(items[idx]);
       logMovement({
         type: delta >= 0 ? 'in' : 'out',
         sparepart_id: id,
@@ -437,6 +451,7 @@ export const repairsApi = {
     items.push(item);
     write(KEYS.repairs, items);
     fireSync(item);
+    phpMirror.repair.upsert({ ...item, __isNew: true });
     return item;
   },
   update: (id, data) => {
@@ -446,6 +461,7 @@ export const repairsApi = {
     items[idx] = { ...items[idx], ...data, updated_at: new Date().toISOString() };
     write(KEYS.repairs, items);
     fireSync(items[idx]);
+    phpMirror.repair.upsert(items[idx]);
     return items[idx];
   },
   changeStatus: (id, status) => {
@@ -458,6 +474,7 @@ export const repairsApi = {
     if (status === 'picked_up') items[idx].picked_up_at = now;
     write(KEYS.repairs, items);
     fireSync(items[idx]);
+    phpMirror.repair.upsert(items[idx]);
     return items[idx];
   },
   addPart: (id, sparepart_id, qty) => {
@@ -486,6 +503,7 @@ export const repairsApi = {
       repair_id: id,
     });
     fireSync(items[idx]);
+    phpMirror.repair.addPart(id, sparepart_id, qty);
     return items[idx];
   },
   removePart: (id, partIndex) => {
@@ -515,12 +533,14 @@ export const repairsApi = {
       write(KEYS.repairs, items);
       write(KEYS.spareparts, spareparts);
       fireSync(items[idx]);
+      phpMirror.repair.removePart(id, removed?.sparepart_id);
     }
     return items[idx];
   },
   delete: (id) => {
     const items = read(KEYS.repairs, []).filter((r) => r.id !== id);
     write(KEYS.repairs, items);
+    phpMirror.repair.remove(id);
   },
   addPayment: (id, amount, method, note) => {
     const items = read(KEYS.repairs, []);
@@ -539,6 +559,7 @@ export const repairsApi = {
     items[idx].updated_at = new Date().toISOString();
     write(KEYS.repairs, items);
     fireSync(items[idx]);
+    phpMirror.repair.addPayment(id, amt, method || 'Tunai', note || '');
     return items[idx];
   },
   removePayment: (id, payment_id) => {
@@ -549,6 +570,7 @@ export const repairsApi = {
     items[idx].updated_at = new Date().toISOString();
     write(KEYS.repairs, items);
     fireSync(items[idx]);
+    phpMirror.repair.removePayment(id, payment_id);
     return items[idx];
   },
   addRating: (id, rating, review) => {

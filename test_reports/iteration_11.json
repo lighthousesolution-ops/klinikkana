@@ -1,0 +1,58 @@
+{
+  "summary": "Backend-only re-test of the PHP backend (PHP 8.2 + SQLite harness at localhost:8888) after iteration-10 fixes. Ran the full previous suite (test_php_string_ids.py: 37 passed, 1 env-skip) plus a new 22-case suite (test_php_iteration11.py) targeting all 6 requested items. Combined: 59 passed, 1 skipped, 0 failed (98% incl. skip / 100% of executed). ALL 4 iteration-10 defects are CONFIRMED FIXED: (1) full-object PUT now persists device_brand/device_model/serial_no/complaint/notes/service_fee/deposit/technician_id AND status together; (2) completed_at/picked_up_at are no longer re-stamped on repeated same-status PUTs (COALESCE works, verified with 2s gaps); (3) reply.php POST works for admin (200 + persisted admin_reply/admin_reply_by/admin_reply_at), 403 for technician, 401 unauth; (4) reply.php DELETE returns 200 for admin, 403 for non-admin, clears fields; (5) global exception handler on dashboard/stats.php returns exactly {\"error\":\"Internal server error\"} with HTTP 500 and NO file path / stack trace / SQLSTATE leak. Two remaining backend defects found: destructive partial PUT on repairs, and non-admin self password change blocked by admin-only users PUT.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "PUT /api/repairs/index.php?id=<id>",
+        "issue": "DESTRUCTIVE PARTIAL UPDATE (HIGH). The hasFields branch always writes ALL 8 columns using `$b['x'] ?? ''` defaults, so a partial payload wipes the omitted columns. Reproduced: create repair (iPhone/X/SN1/orig/notes n1/fee 50000/deposit 10000) then PUT {\"notes\":\"only notes changed\"} -> 200, and GET returns device_brand='', device_model='', serial_no='', complaint='', service_fee=0, deposit=0. Safe only while phpMirror sends the whole object; any other caller (curl, future partial-save UI, retry with trimmed payload) silently destroys data. FIX: build the SET clause only from keys present in the body (or use COALESCE with NULL binds)."
+      },
+      {
+        "endpoint": "PUT /api/users/index.php?id=<own id>",
+        "issue": "SELF PASSWORD CHANGE STILL NOT MIRRORED FOR NON-ADMINS (HIGH). store.js:192 now calls phpMirror.user.upsert() (fix confirmed in code), but users/index.php PUT is guarded by require_role(['admin']). Verified: technician 'qa_pw' PUT on its own record -> 403 {'error':'Forbidden - insufficient role'}, and login with the new password afterwards -> 401. So a technician/cashier changing their own password updates localStorage only and can never log in via MySQL/PHP mode. FIX: allow PUT when $user['id'] === $id (password-only fields), or add a dedicated /api/auth/change-password.php endpoint and call that from changeOwnPassword."
+      },
+      {
+        "endpoint": "PUT /api/users/index.php",
+        "issue": "Role/full_name silently downgraded on partial payloads: role defaults to 'cashier' and full_name to '' when omitted. Same non-merging pattern as the repairs PUT."
+      },
+      {
+        "endpoint": "GET /api/dashboard/stats.php",
+        "issue": "ENV-ONLY: MySQL-only DATE_FORMAT/DATE_SUB/CURDATE cannot run on the SQLite harness, so it 500s here (now with a clean generic JSON error). Its business output remains UNVERIFIED — must be checked on the VPS MySQL."
+      },
+      {
+        "endpoint": "POST /api/repairs/parts.php",
+        "issue": "ENV-ONLY skip: SELECT ... FOR UPDATE is unsupported by SQLite (1 skipped test). Correct for MySQL production but not exercised here."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_php_iteration11.py",
+    "/app/backend/tests/test_php_string_ids.py",
+    "/app/test_reports/pytest/php_iteration11.xml"
+  ],
+  "action_items": [
+    "Make PUT /api/repairs/index.php non-destructive: only update columns actually present in the JSON body (partial PUT currently blanks device_brand/model/serial_no/complaint and zeroes service_fee/deposit).",
+    "Allow non-admin users to change their OWN password through PHP (self-PUT on users or a dedicated change-password endpoint); currently 403 so the new phpMirror.user.upsert() call in store.js:192 is a no-op for technician/cashier.",
+    "Apply the same key-present merge logic to PUT /api/users (role silently becomes 'cashier', full_name '' when omitted).",
+    "Verify /api/dashboard/stats.php and repairs/parts.php on the real VPS MySQL — both are untestable on the SQLite harness."
+  ],
+  "critical_code_review_comments": [
+    "repairs/index.php PUT: replace the fixed 8-column UPDATE with a dynamically built SET list from array_key_exists() keys; the current `?? ''` defaults are a data-loss hazard.",
+    "COALESCE(completed_at, CURRENT_TIMESTAMP) is portable and works on both SQLite and MySQL — verified; no shim change was needed.",
+    "response.php set_exception_handler + register_shutdown_function correctly suppress leaks; consider also logging the request URI for easier VPS debugging.",
+    "reply.php: the require_role(['admin']) return value is used for admin_reply_by — good; NOW() is translated by the test shim only, which is fine for MySQL prod."
+  ],
+  "updated_files": ["/app/backend/tests/test_php_iteration11.py"],
+  "success_rate": {"backend": "100% of executed cases (59 passed / 1 env-skip)", "frontend": "not tested (backend-only request)"},
+  "seed_data_creation": "Ephemeral SQLite harness /tmp/klinikkana_test.sqlite (recreated per run). Test rows r_qa_i11_*, u_qa_i11_tech, u_pwtest all deleted after use.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "PHP API admin/admin123 (also technician qa_i11_tech/QaPass!23 created+deleted by tests)",
+  "context_for_next_testing_agent": "Bootstrap: pkill -f 'php -S 0.0.0.0:8888'; rm -f /tmp/klinikkana_test.sqlite; cd /app/php-backend && nohup php -S 0.0.0.0:8888 -t /app/php-backend >/tmp/php_server.log 2>&1 &  then: cd /app/backend && python -m pytest tests/test_php_string_ids.py tests/test_php_iteration11.py -p no:randomly -q. Both files are green as of iteration 11. Remaining open items are the destructive partial repairs PUT and non-admin self password change (403). Frontend not retested this iteration.",
+  "rca_of_the_issue": "Iteration-10 defects: (a) PUT branched on isset($b['status']) making status and field updates mutually exclusive — fixed by the hasFields check that runs both UPDATEs; (b) reply.php called undefined require_auth() causing a PHP fatal — fixed with require_role(['admin']). Newly found: the field UPDATE statement writes a fixed column list with '' / 0 fallbacks, so any payload missing a key erases that column; and users PUT is admin-only, so the newly added phpMirror mirror call in changeOwnPassword is rejected with 403 for non-admin roles."
+}

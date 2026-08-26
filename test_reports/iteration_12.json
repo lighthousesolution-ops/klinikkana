@@ -1,0 +1,48 @@
+{
+  "summary": "Backend-only retest of the PHP backend (PHP 8.2 + SQLite harness, php -S 0.0.0.0:8888) after iteration-11 fixes. Ran the full previous suite (test_php_string_ids.py + test_php_iteration11.py) plus a NEW 25-case suite test_php_iteration12.py targeting the two HIGH defects from iteration 11. Combined result: 84 passed, 1 env-skip, 0 failed. BOTH iteration-11 HIGH issues are CONFIRMED FIXED: (1) PUT /api/repairs/index.php now builds the SET clause dynamically from array_key_exists, so PARTIAL payloads no longer wipe omitted columns - reproduced the exact iteration-11 case (iPhone/X/SN1/orig/n1/50000/10000 then PUT {\"notes\":\"only notes\"}) and GET returns all original values intact with notes updated; also verified fee-only, technician-only, status-only and empty-body ({} = no-op) PUTs, and that an EXPLICIT \"\" still clears a column (intentional clears not blocked). Full-object PUT (status + all 8 fields + completed_at stamping) still persists everything (iteration-10 fix has not regressed). (2) PUT /api/users/index.php?id=<own id> now returns 200 for technician AND cashier changing their OWN password; login with the new password succeeds and the old password is rejected 401. Non-admin PUT on ANOTHER user's id still 403 and the victim's password is unchanged; unauthenticated PUT is 401; non-admin role escalation is silently ignored (role stays technician); non-admin full_name=\"\" is ignored (no wipe). Users partial PUT no longer blanks role/full_name (admin phone-only and password-only PUTs keep role='technician' and full_name intact); admin can still legitimately change role/full_name and an invalid role returns 400. reply.php POST/DELETE role guards and the completed_at/picked_up_at COALESCE no-restamp behaviour still pass. Global exception handler on dashboard/stats.php still returns exactly {\"error\":\"Internal server error\"} (HTTP 500) with no path/stack-trace/SQLSTATE leak.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "PUT /api/users/index.php",
+        "issue": "No password strength/length validation on PUT or POST (password_hash accepts a 1-char password). Frontend enforces rules, but the API does not - a direct call can set a trivial password."
+      },
+      {
+        "endpoint": "phpMirror.user.upsert (frontend -> PUT /api/users)",
+        "issue": "Design note (not tested this iteration): the mirror sends the whole localStorage user object, which contains the PLAINTEXT password on every user edit, so PHP re-hashes the same password on unrelated edits. Works, but consider sending password only when it actually changed."
+      },
+      {
+        "endpoint": "GET /api/dashboard/stats.php",
+        "issue": "ENV-ONLY: MySQL-only DATE_FORMAT/DATE_SUB/CURDATE cannot run on the SQLite harness so it 500s here (clean generic JSON error). Business output still UNVERIFIED - must be checked on the VPS MySQL."
+      },
+      {
+        "endpoint": "POST /api/repairs/parts.php",
+        "issue": "ENV-ONLY skip (1 skipped test): SELECT ... FOR UPDATE unsupported by SQLite. Correct for MySQL prod but not exercised here."
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_php_iteration12.py",
+    "/app/backend/tests/test_php_iteration11.py",
+    "/app/backend/tests/test_php_string_ids.py",
+    "/app/test_reports/pytest/php_iteration12.xml"
+  ],
+  "action_items": [
+    "No blocking backend defects remain in the tested scope. Optional: add server-side password length validation to POST/PUT /api/users.",
+    "Verify /api/dashboard/stats.php and /api/repairs/parts.php on the real VPS MySQL - both are untestable on the SQLite harness."
+  ],
+  "critical_code_review_comments": [
+    "repairs/index.php PUT: dynamic $map + array_key_exists SET builder is correct and preserves intentional '' clears - good fix, no further change needed.",
+    "users/index.php PUT: $isSelf check plus admin-only role/full_name whitelist is the right shape; role from a non-admin is silently dropped (no 403), which is acceptable but consider returning 403 so clients notice a rejected escalation attempt.",
+    "users PUT returns the row without password_hash - verified, no hash leak."
+  ],
+  "updated_files": ["/app/backend/tests/test_php_iteration12.py"],
+  "success_rate": {"backend": "100% of executed cases (84 passed / 1 env-skip)", "frontend": "not tested (backend-only request)"},
+  "seed_data_creation": "Ephemeral SQLite harness /tmp/klinikkana_test.sqlite (recreated per run). Test rows r_qa_i12_partial, u_qa_i12_tech, u_qa_i12_other created and deleted by the tests.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "PHP API admin/admin123 (test users qa_i12_tech / qa_i12_other created+deleted by the suite)",
+  "context_for_next_testing_agent": "Bootstrap: pkill -f 'php -S 0.0.0.0:8888'; rm -f /tmp/klinikkana_test.sqlite; cd /app/php-backend && nohup php -S 0.0.0.0:8888 -t /app/php-backend >/tmp/php_server.log 2>&1 &  then: cd /app/backend && python -m pytest tests/test_php_string_ids.py tests/test_php_iteration11.py tests/test_php_iteration12.py -n 0 -p no:randomly -q  (use -n 0: pytest.ini forces -n 2 and the PHP built-in server is single-threaded). All three files are green as of iteration 12. Open items are env-only: dashboard/stats.php and repairs/parts.php need real MySQL. Frontend has not been retested since iteration 11.",
+  "rca_of_the_issue": "Iteration-11 defects were (a) the repairs PUT writing a fixed 8-column list with `?? ''` / 0 fallbacks (data loss on partial payloads) and (b) users PUT guarded by require_role(['admin']) (403 on self password change). Both are resolved by dynamic array_key_exists-driven SET clauses and an $isSelf allowance with an admin-only field whitelist; verified end-to-end including login with the new password."
+}

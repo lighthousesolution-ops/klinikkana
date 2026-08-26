@@ -1,0 +1,84 @@
+{
+  "summary": "Iteration 10 validated the STRING-ID contract fix on the PHP backend (ephemeral PHP+SQLite harness at localhost:8888) plus frontend regression on the preview URL. 38 pytest cases -> 35 passed, 2 failed, 1 env-skip (92% pass). THE ORIGINAL USER BUG IS FIXED: every UPDATE/DELETE with a string id (c_qa_1, sp_qa_1, u_qa_1, r_qa_1) now returns 200 instead of 400 'id wajib'; POST accepts a client-supplied string id so localStorage and MySQL share the same key; string FK (customer_id='c1') on repair create works. HOWEVER two new real defects were found that still cause 'MySQL not changing' for the user: (1) repair field-edits are silently dropped by repairs/index.php PUT, (2) repairs/reply.php calls an undefined function -> hard 500.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "PUT /api/repairs/index.php?id=<id>",
+        "issue": "FIELD EDITS SILENTLY DROPPED. store.js repairs.update() -> phpMirror.repair.upsert(items[idx]) sends the FULL repair object, which ALWAYS contains `status`. The PHP handler branches on `isset($b['status'])` and takes the status-only UPDATE path, so device_brand/device_model/serial_no/complaint/notes/technician_id/service_fee/deposit are NEVER written to MySQL. Reproduced: PUT {status:'pending', device_brand:'Samsung', complaint:'EDITED', service_fee:999000} -> 200 OK but GET still returns device_brand='iPhone', complaint='orig', service_fee=100000. This is exactly the user-reported 'query mysql tidak berubah' symptom for repair edits. FIX: branch on an explicit intent (e.g. only take the status path when the body contains ONLY status, or send {status} alone from phpMirror and always UPDATE all fields otherwise).",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "POST/DELETE /api/repairs/reply.php?id=<id>",
+        "issue": "PHP Fatal error: Call to undefined function require_auth() at reply.php:13. includes/auth.php only defines auth_user() and require_role(). Every admin reply to a customer review returns HTTP 500 in production. FIX: replace require_auth() with require_role(['admin']) (which also makes the manual role check redundant).",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "PUT /api/repairs/index.php (status path)",
+        "issue": "Because the mirror re-sends status on every edit, `completed_at = NOW()` / `picked_up_at = NOW()` are re-stamped on each save, clobbering the original completion/pickup timestamps. Should only set them when the timestamp is currently NULL, or accept the client value."
+      },
+      {
+        "endpoint": "authApi.changePassword (store.js:180-193)",
+        "issue": "Password change writes only to localStorage - no phpMirror.user.upsert() call. Password changes never reach MySQL, so the user cannot log in with the new password after a PHP-mode rebuild."
+      },
+      {
+        "endpoint": "GET /api/dashboard/stats.php",
+        "issue": "ENV-ONLY (skipped): uses MySQL-only DATE_FORMAT/DATE_SUB/CURDATE/YEAR/MONTH so it cannot run on the SQLite harness. Expected to work on the VPS MySQL, but NOT verified by this iteration."
+      },
+      {
+        "endpoint": "all endpoints",
+        "issue": "No global exception handler. Uncaught PDOException/Error returns HTTP 500 with the raw PHP fatal error + file path + stack trace in the response body (verified on stats.php and reply.php). Information disclosure on a public VPS; wrap in try/catch + set display_errors=0."
+      },
+      {
+        "endpoint": "POST /api/repairs/parts.php, PUT /api/settings/index.php",
+        "issue": "MySQL-only syntax (FOR UPDATE, ON DUPLICATE KEY UPDATE). Verified working only via a test-harness SQL translation shim; correct for MySQL production."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Repair edit -> MySQL (PHP mode)",
+        "issue": "phpMirror.repair.upsert() sends the whole repair object including status, triggering the PHP status-only branch. Either the client must send a status-free payload for field edits, or the PHP handler must be fixed (see backend critical #1).",
+        "affected_selectors": ["/app/frontend/src/lib/store.js:463", "/app/frontend/src/lib/phpMirror.js repair.upsert"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "All page headers (Manajemen Pelanggan, Kelola User, etc.)",
+        "issues": ["Page title renders with an opaque solid-blue block behind the text (looks like a stray text-selection/highlight artifact rather than intended styling); likely a gradient bg-clip-text fallback not applying. Low priority, cosmetic."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_php_string_ids.py",
+    "/app/test_reports/pytest/php_string_ids.xml"
+  ],
+  "action_items": [
+    "CRITICAL: Fix PUT /api/repairs/index.php so full-object payloads (which always carry `status`) still persist device/complaint/fee/technician edits. Reproduce with tests/test_php_string_ids.py::TestRepairUpdateContract.",
+    "CRITICAL: reply.php:13 - require_auth() is undefined -> 500. Use require_role(['admin']).",
+    "Do not re-stamp completed_at/picked_up_at on every save.",
+    "Wire phpMirror into authApi.changePassword so password changes reach MySQL.",
+    "Add a global try/catch + display_errors=0 so PHP fatals do not leak stack traces to clients.",
+    "dashboard/stats.php was NOT verified (MySQL-only date functions) - test it manually on the VPS after deploy."
+  ],
+  "critical_code_review_comments": [
+    "repairs/index.php PUT uses payload shape (presence of `status`) as the routing signal for two mutually-exclusive UPDATE statements. This is fragile and is the root cause of the dropped-edit bug. Route on an explicit action field or always UPDATE all provided columns.",
+    "PHP endpoints have no centralized error handling; every PDOException becomes a 500 with a full stack trace in the response body.",
+    "store.js keeps user passwords in plaintext in localStorage (users[idx].password) and mirrors them to the PHP API on every user update. Acceptable for a local demo, but it means plaintext credentials travel over the wire on every unrelated user edit.",
+    "config/database.php currently contains the TEST-ONLY SQLite bootstrap + a MySQL->SQLite SQL translation shim. This MUST be replaced by the MySQL PDO version (.bak) before VPS deploy, otherwise production writes go to /tmp/klinikkana_test.sqlite."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_php_string_ids.py",
+    "/app/php-backend/config/database.php"
+  ],
+  "success_rate": {"backend": "92% (35/38 pytest, 1 env-skip, 2 real failures)", "frontend": "100% (login + 8 routes render, 0 console errors, phpMirror hook + _fire verified)"},
+  "seed_data_creation": "SQLite harness auto-seeds u1/admin (admin123), c1, sp1. Test rows c_qa_1, sp_qa_1, u_qa_1, r_qa_1, r_qa_pub, r_qa_contract are all created and deleted within the suite. app_settings.shop_name left as 'QA Shop' in the throwaway /tmp SQLite DB only.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "PHP API: admin / admin123 (http://localhost:8888). Frontend LOCAL mode: admin/admin123, teknisi/teknisi123, kasir/kasir123.",
+  "context_for_next_testing_agent": "Run: rm -f /tmp/klinikkana_test.sqlite && cd /app/backend && python -m pytest tests/test_php_string_ids.py -p no:randomly -q. PHP server: php -S 0.0.0.0:8888 -t /app/php-backend (log /tmp/php-test.log). I added a TestPdo shim in /app/php-backend/config/database.php that rewrites MySQL-only SQL (FOR UPDATE, NOW(), YEAR/MONTH, ON DUPLICATE KEY) to SQLite so parts.php/settings/status-updates/rating.php are actually exercised; it does NOT cover DATE_FORMAT/DATE_SUB so stats.php still 500s (skipped). This shim and the whole SQLite bootstrap are TEST-ONLY and must be swapped for the MySQL .bak before deploy. Two tests are EXPECTED to fail until the developer fixes them: TestRepairUpdateContract::test_02 (dropped field edits) and TestPublicAndReview::test_04 (reply.php require_auth undefined). Frontend is still REACT_APP_DATA_MODE=local; window.__phpMirror._fire was confirmed to emit the correct PUT /api/customers/index.php?id=c1.",
+  "rca_of_the_issue": "The original 'MySQL tidak berubah' bug had TWO layers. Layer 1 (fixed & verified this iteration): PHP endpoints cast ids with (int), so string localStorage ids became 0 and every UPDATE/DELETE returned 400 'id wajib'; all id columns are now VARCHAR(64), the (int) casts are removed, and POST accepts a client-supplied id so localStorage and MySQL share the same key - all 4 CRUD cycles (customers, spareparts, users, repairs incl. string FK) now pass. Layer 2 (still broken): repairs/index.php PUT decides between a status-only UPDATE and a field UPDATE based on whether the body contains `status`. Because phpMirror always mirrors the entire repair object (which always has a status), the field UPDATE branch is unreachable, so every repair edit returns 200 while MySQL keeps the old values. Additionally repairs/reply.php calls the non-existent require_auth(), producing a hard 500 on every admin review reply."
+}

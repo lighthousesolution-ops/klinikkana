@@ -20,6 +20,17 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-02) — Iteration 13 (Perbaikan PHP Backend untuk Sync MySQL VPS)
+Konteks: user melaporkan MySQL di VPS tidak berubah walau UI berjalan. Testing agent (iter 10-12) menemukan sederet defect PHP setelah `phpMirror` diaktifkan. Sekarang semua defect kritis diperbaiki.
+- **`repairs/index.php` PUT** — Dulu mutually-exclusive antara update status dan update field; sekarang dua-duanya jalan bareng via cek `hasFields`. SET clause dibangun DINAMIS dari `array_key_exists`, jadi partial PUT (mis. hanya `{notes}`) tidak lagi menghapus kolom lain. `completed_at` / `picked_up_at` di-guard dengan `COALESCE(...)` sehingga tidak di-restamp saat mirror kirim status sama berulang.
+- **`repairs/reply.php`** — Ganti `require_auth()` (undefined → 500 fatal) dengan `require_role(['admin'])`. Balasan admin ke ulasan pelanggan sekarang tersimpan ke MySQL.
+- **`users/index.php` PUT** — Sekarang mengizinkan **self-edit** (non-admin ganti password sendiri) via cek `$isSelf`; role/full_name tetap admin-only (non-admin tidak bisa escalate). SET clause dinamis, tidak menghapus field yang tidak dikirim.
+- **`store.js#changeOwnPassword`** — Sekarang panggil `phpMirror.user.upsert(users[idx])` agar password baru tersinkron ke MySQL.
+- **`response.php`** — `display_errors=0` + `set_exception_handler` + `register_shutdown_function` menutup kebocoran stack trace pada error 500 (semua fatal PDO sekarang balas `{"error":"Internal server error"}` tanpa path/file).
+- **Verifikasi**: `test_php_string_ids.py` + `test_php_iteration11.py` + `test_php_iteration12.py` — **84 passed, 1 env-skip, 0 failed**. Iter-10 dan iter-11 defects semuanya CONFIRMED FIXED.
+- **Env-only (belum diverifikasi di preview, harus dites di VPS MySQL)**: `dashboard/stats.php` (DATE_FORMAT/DATE_SUB), `repairs/parts.php` (FOR UPDATE).
+
+
 ## Implemented (2026-02) — Iteration 12 (Reset Password Sendiri via Profil)
 - **Halaman Profil `/profile`** (semua role: admin, teknisi, kasir).
   - Identity card: avatar, nama, username, role badge, cabang, telepon, tanggal dibuat.

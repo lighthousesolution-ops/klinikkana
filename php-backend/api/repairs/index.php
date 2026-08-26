@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../config/database.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$id = isset($_GET['id']) ? trim((string)$_GET['id']) : '';
 
 function attach_parts(array &$repair): void {
     $stmt = db()->prepare('SELECT rp.id, rp.sparepart_id, rp.qty, rp.price, s.name AS sparepart_name, s.sku
@@ -38,7 +38,7 @@ switch ($method) {
             attach_parts($r);
             json_response($r);
         }
-        $customer_id = isset($_GET['customer_id']) ? (int)$_GET['customer_id'] : 0;
+        $customer_id = isset($_GET['customer_id']) ? trim((string)$_GET['customer_id']) : '';
         if ($customer_id) {
             $stmt = db()->prepare('SELECT * FROM repairs WHERE customer_id=? ORDER BY created_at DESC');
             $stmt->execute([$customer_id]);
@@ -54,14 +54,20 @@ switch ($method) {
         require_role(['admin', 'cashier', 'technician']);
         $b = json_body();
         foreach (['customer_id','device_brand','device_model','complaint'] as $r) if (empty($b[$r])) json_error("Field $r wajib");
-        $ticket = next_ticket_no();
-        $stmt = db()->prepare('INSERT INTO repairs (ticket_no, customer_id, device_brand, device_model, serial_no, complaint, service_fee, deposit, status) VALUES (?,?,?,?,?,?,?,?, ?)');
+        // Accept client-generated id if provided (matches localStorage uid()),
+        // otherwise generate one. This lets the write-through mirror keep the
+        // same id across localStorage and MySQL.
+        $newId = !empty($b['id']) ? trim((string)$b['id']) : uniqid('r_', true);
+        $ticket = !empty($b['ticket_no']) ? trim((string)$b['ticket_no']) : next_ticket_no();
+        $stmt = db()->prepare('INSERT INTO repairs (id, ticket_no, customer_id, device_brand, device_model, serial_no, complaint, notes, service_fee, deposit, status, technician_id, branch_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
         $stmt->execute([
-            $ticket, (int)$b['customer_id'], $b['device_brand'], $b['device_model'],
-            $b['serial_no'] ?? '', $b['complaint'],
-            (float)($b['service_fee'] ?? 0), (float)($b['deposit'] ?? 0), 'pending'
+            $newId, $ticket, (string)$b['customer_id'], $b['device_brand'], $b['device_model'],
+            $b['serial_no'] ?? '', $b['complaint'], $b['notes'] ?? '',
+            (float)($b['service_fee'] ?? 0), (float)($b['deposit'] ?? 0),
+            $b['status'] ?? 'pending',
+            !empty($b['technician_id']) ? (string)$b['technician_id'] : null,
+            $b['branch_id'] ?? null,
         ]);
-        $newId = db()->lastInsertId();
         $stmt = db()->prepare('SELECT * FROM repairs WHERE id=?');
         $stmt->execute([$newId]);
         $repair = $stmt->fetch();
@@ -74,24 +80,52 @@ switch ($method) {
         if (!$id) json_error('id wajib');
         $b = json_body();
 
-        // Status change
+        // Always apply field updates when the body carries them. phpMirror
+        // sends the entire repair object, so we can no longer treat status
+        // as mutually-exclusive with the other fields.
+        $hasFields = array_key_exists('device_brand', $b) || array_key_exists('device_model', $b)
+                  || array_key_exists('serial_no', $b) || array_key_exists('complaint', $b)
+                  || array_key_exists('notes', $b) || array_key_exists('technician_id', $b)
+                  || array_key_exists('service_fee', $b) || array_key_exists('deposit', $b);
+        if ($hasFields) {
+            // Build the SET clause ONLY from keys actually present in the
+            // payload so partial PUTs never blank out other columns.
+            $sets = [];
+            $vals = [];
+            $map = [
+                'device_brand'  => fn($v) => (string)$v,
+                'device_model'  => fn($v) => (string)$v,
+                'serial_no'     => fn($v) => (string)$v,
+                'complaint'     => fn($v) => (string)$v,
+                'notes'         => fn($v) => (string)$v,
+                'technician_id' => fn($v) => $v === '' || $v === null ? null : (string)$v,
+                'service_fee'   => fn($v) => (float)$v,
+                'deposit'       => fn($v) => (float)$v,
+            ];
+            foreach ($map as $col => $cast) {
+                if (array_key_exists($col, $b)) {
+                    $sets[] = "$col=?";
+                    $vals[] = $cast($b[$col]);
+                }
+            }
+            if ($sets) {
+                $vals[] = $id;
+                $stmt = db()->prepare('UPDATE repairs SET ' . implode(', ', $sets) . ' WHERE id=?');
+                $stmt->execute($vals);
+            }
+        }
+        // Then apply status transition. Only stamp completed_at / picked_up_at
+        // when they are still NULL, so re-mirroring the same status (phpMirror
+        // sends the entire object on every edit) does not clobber the original
+        // completion/pickup timestamps.
         if (isset($b['status'])) {
             $status = $b['status'];
             if (!in_array($status, ['pending','in_progress','ready','picked_up'], true)) json_error('Status tidak valid');
             $extra = '';
-            $params = [$status, $id];
-            if ($status === 'ready') $extra = ', completed_at = NOW()';
-            if ($status === 'picked_up') $extra = ', picked_up_at = NOW()';
+            if ($status === 'ready')     $extra = ', completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP)';
+            if ($status === 'picked_up') $extra = ', picked_up_at = COALESCE(picked_up_at, CURRENT_TIMESTAMP)';
             $stmt = db()->prepare("UPDATE repairs SET status=?" . $extra . " WHERE id=?");
-            $stmt->execute($params);
-        } else {
-            $stmt = db()->prepare('UPDATE repairs SET device_brand=?, device_model=?, serial_no=?, complaint=?, notes=?, technician_id=?, service_fee=?, deposit=? WHERE id=?');
-            $stmt->execute([
-                $b['device_brand'] ?? '', $b['device_model'] ?? '', $b['serial_no'] ?? '',
-                $b['complaint'] ?? '', $b['notes'] ?? '',
-                !empty($b['technician_id']) ? (int)$b['technician_id'] : null,
-                (float)($b['service_fee'] ?? 0), (float)($b['deposit'] ?? 0), $id,
-            ]);
+            $stmt->execute([$status, $id]);
         }
         $stmt = db()->prepare('SELECT * FROM repairs WHERE id=?');
         $stmt->execute([$id]);

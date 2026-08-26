@@ -18,7 +18,7 @@ if (!$user || !password_verify($password, $user['password_hash'])) {
     json_error('Username atau password salah', 401);
 }
 
-$payload = ['uid' => (int)$user['id'], 'role' => $user['role'], 'iat' => time(), 'exp' => time() + JWT_TTL_SECONDS];
+$payload = ['uid' => (string)$user['id'], 'role' => $user['role'], 'iat' => time(), 'exp' => time() + JWT_TTL_SECONDS];
 $token = jwt_encode($payload);
 unset($user['password_hash']);
 

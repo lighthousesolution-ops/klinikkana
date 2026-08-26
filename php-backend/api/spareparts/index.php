@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../config/database.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$id = isset($_GET['id']) ? trim((string)$_GET['id']) : '';
 
 switch ($method) {
     case 'GET': {
@@ -22,18 +22,19 @@ switch ($method) {
         require_role(['admin', 'technician']);
         $b = json_body();
         foreach (['name','sku'] as $r) if (empty($b[$r])) json_error("Field $r wajib");
-        $stmt = db()->prepare('INSERT INTO spareparts (name, sku, category, stock, cost_price, selling_price, low_stock_threshold) VALUES (?,?,?,?,?,?,?)');
+        $newId = !empty($b['id']) ? trim((string)$b['id']) : uniqid('sp_', true);
+        $stmt = db()->prepare('INSERT INTO spareparts (id, name, sku, category, stock, cost_price, selling_price, low_stock_threshold, branch_id) VALUES (?,?,?,?,?,?,?,?,?)');
         try {
             $stmt->execute([
-                $b['name'], strtoupper($b['sku']), $b['category'] ?? 'Lainnya',
+                $newId, $b['name'], strtoupper($b['sku']), $b['category'] ?? 'Lainnya',
                 (int)($b['stock'] ?? 0),
                 (float)($b['cost_price'] ?? 0), (float)($b['selling_price'] ?? 0),
                 (int)($b['low_stock_threshold'] ?? 3),
+                $b['branch_id'] ?? null,
             ]);
         } catch (PDOException $e) {
             json_error('SKU sudah dipakai atau data tidak valid', 400);
         }
-        $newId = db()->lastInsertId();
         $stmt = db()->prepare('SELECT * FROM spareparts WHERE id=?');
         $stmt->execute([$newId]);
         json_response($stmt->fetch(), 201);

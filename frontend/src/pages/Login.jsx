@@ -21,11 +21,11 @@ export default function LoginPage() {
 
   if (user) return <Navigate to="/dashboard" replace />;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setBusy(true);
     try {
-      login(username.trim(), password);
+      await login(username.trim(), password);
       toast.success('Login berhasil');
       navigate('/dashboard');
     } catch (err) {

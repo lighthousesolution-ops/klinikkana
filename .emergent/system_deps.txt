@@ -1,1 +1,5 @@
 cron=3.0pl1-162
+php-cli=2:8.2+93
+php-mbstring=2:8.2+93
+php-mysql=2:8.2+93
+php-sqlite3=2:8.2+93
