@@ -1,15 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { Smartphone, LogIn, ShieldCheck, Wrench, ShoppingBag } from 'lucide-react';
+import { Smartphone, LogIn } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { settingsApi } from '@/lib/store';
-
-const DEMO = [
-  { role: 'admin', label: 'Admin', icon: ShieldCheck, u: 'admin', p: 'admin123' },
-  { role: 'teknisi', label: 'Teknisi', icon: Wrench, u: 'teknisi', p: 'teknisi123' },
-  { role: 'kasir', label: 'Kasir', icon: ShoppingBag, u: 'kasir', p: 'kasir123' },
-];
 
 export default function LoginPage() {
   const { user, login } = useAuth();
@@ -33,11 +27,6 @@ export default function LoginPage() {
     } finally {
       setBusy(false);
     }
-  };
-
-  const quickFill = (u, p) => {
-    setUsername(u);
-    setPassword(p);
   };
 
   return (
@@ -146,26 +135,6 @@ export default function LoginPage() {
               {busy ? 'Memproses...' : 'Masuk'}
             </button>
           </form>
-
-          <div className="pt-2">
-            <div className="text-sm text-muted-foreground mb-3">Akun demo — klik untuk isi otomatis</div>
-            <div className="grid grid-cols-3 gap-2">
-              {DEMO.map((d) => (
-                <button
-                  key={d.role}
-                  onClick={() => quickFill(d.u, d.p)}
-                  data-testid={`demo-${d.role}`}
-                  className="flex flex-col items-start gap-2 px-3 py-3 rounded-md border border-border hover:border-primary hover:bg-accent transition-colors"
-                >
-                  <d.icon className="h-4 w-4 text-primary" />
-                  <div className="text-left">
-                    <div className="text-sm font-semibold">{d.label}</div>
-                    <div className="font-mono text-[11px] text-muted-foreground">{d.u}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>
