@@ -3,6 +3,8 @@ import { User as UserIcon, KeyRound, Check, X, Eye, EyeOff, Save, ShieldCheck, B
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { authApi, branchesApi } from '@/lib/store';
+import { IS_PHP } from '@/lib/dataMode';
+import { phpAuthApi, phpUsersApi } from '@/lib/apiPhp';
 import { ROLE_LABELS } from '@/lib/mockData';
 import { formatDate } from '@/lib/utils';
 
@@ -31,12 +33,26 @@ export default function ProfilePage() {
   const matches = next.length > 0 && next === confirm;
   const canSubmit = current.length > 0 && allPass && matches && !saving;
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (!canSubmit) return;
     setSaving(true);
     try {
-      authApi.changeOwnPassword(current, next);
+      if (IS_PHP) {
+        // Verify current password by attempting a fresh login (throws on wrong
+        // password). This also refreshes the JWT so the subsequent PUT is
+        // guaranteed to have a valid token.
+        try {
+          await phpAuthApi.login(user.username, current);
+        } catch {
+          throw new Error('Password lama tidak cocok');
+        }
+        if (current === next) throw new Error('Password baru harus berbeda dari lama');
+        // Update via the users PUT endpoint (self-edit is allowed).
+        await phpUsersApi.update(user.id, { password: next });
+      } else {
+        authApi.changeOwnPassword(current, next);
+      }
       toast.success('Password berhasil diubah. Silakan login ulang.');
       // Force re-login for safety.
       setTimeout(() => { logout(); }, 1500);
