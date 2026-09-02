@@ -135,10 +135,10 @@ SET FOREIGN_KEY_CHECKS=1;
 -- generate bcrypt asli dari password default (admin123 / teknisi123 / kasir123).
 
 INSERT INTO `users` (`id`,`username`,`password_hash`,`full_name`,`role`,`phone`) VALUES
-('u1', 'admin',    '$2y$10$rZ7YXwq5vQ5Z3iF6.hK3s.tK5jV7wD9L2X3sQ1yN.mR8fZ0aB1cDe', 'Andi Wijaya',    'admin',      '081234567890'),
-('u2', 'teknisi',  '$2y$10$rZ7YXwq5vQ5Z3iF6.hK3s.tK5jV7wD9L2X3sQ1yN.mR8fZ0aB1cDe', 'Budi Santoso',   'technician', '081298765432'),
-('u3', 'kasir',    '$2y$10$rZ7YXwq5vQ5Z3iF6.hK3s.tK5jV7wD9L2X3sQ1yN.mR8fZ0aB1cDe', 'Citra Lestari',  'cashier',    '081345678901'),
-('u4', 'teknisi2', '$2y$10$rZ7YXwq5vQ5Z3iF6.hK3s.tK5jV7wD9L2X3sQ1yN.mR8fZ0aB1cDe', 'Dedi Kurniawan', 'technician', '081456789012');
+('u1', 'admin',    '$2y$10$1zjumd/YoFHzsGp413biBuY28F917f1zGMC/v3GmyF0ttwiuxQV/q', 'Andi Wijaya',    'admin',      '081234567890'),
+('u2', 'teknisi',  '$2y$10$1zjumd/YoFHzsGp413biBuY28F917f1zGMC/v3GmyF0ttwiuxQV/q', 'Budi Santoso',   'technician', '081298765432'),
+('u3', 'kasir',    '$2y$10$1zjumd/YoFHzsGp413biBuY28F917f1zGMC/v3GmyF0ttwiuxQV/q', 'Citra Lestari',  'cashier',    '081345678901'),
+('u4', 'teknisi2', '$2y$10$1zjumd/YoFHzsGp413biBuY28F917f1zGMC/v3GmyF0ttwiuxQV/q', 'Dedi Kurniawan', 'technician', '081456789012');
 
 INSERT INTO `customers` (`id`,`name`,`phone`,`address`,`notes`) VALUES
 ('c1', 'Rina Marlina',   '081211112222', 'Jl. Merdeka No. 12, Jakarta',        'Pelanggan tetap'),
