@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { authApi, ensureSeed } from '@/lib/store';
 import { IS_PHP } from '@/lib/dataMode';
 import { phpAuthApi } from '@/lib/apiPhp';
+import { pullAllFromServer } from '@/lib/pullFromServer';
 
 const AuthContext = createContext(null);
 
@@ -15,6 +16,10 @@ export function AuthProvider({ children }) {
     // fall back to the local session for the mock data mode.
     const u = IS_PHP ? (phpAuthApi.currentUser() || authApi.currentUser()) : authApi.currentUser();
     setUser(u);
+    // If there is a live PHP session, pull latest data from MySQL so every
+    // device sees the same picture on load. Fire-and-forget: UI is still
+    // usable from cached localStorage while the fetch runs.
+    if (IS_PHP && u) pullAllFromServer();
     setLoading(false);
   }, []);
 
@@ -23,6 +28,9 @@ export function AuthProvider({ children }) {
       // Real PHP backend: token + user come from MySQL.
       const { user } = await phpAuthApi.login(username, password);
       setUser(user);
+      // Right after login, hydrate localStorage from MySQL so a fresh
+      // device does not fall back to seeded demo data.
+      await pullAllFromServer();
       return user;
     }
     const { user } = authApi.login(username, password);

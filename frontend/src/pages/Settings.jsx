@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { Save, RotateCcw, Upload, Trash2, Info, Store, MessageSquare, FileText, Printer } from 'lucide-react';
+import { Save, RotateCcw, Upload, Trash2, Info, Store, MessageSquare, FileText, Printer, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { settingsApi, preferencesApi } from '@/lib/store';
 import { useAuth } from '@/contexts/AuthContext';
+import { IS_PHP } from '@/lib/dataMode';
+import { pullAllFromServer } from '@/lib/pullFromServer';
 
 const PLACEHOLDER_LIST = [
   { key: '{customer_name}', desc: 'Nama pelanggan' },
@@ -31,6 +33,29 @@ export default function SettingsPage() {
     const next = preferencesApi.update(user?.id, { [k]: v });
     setPrefs(next);
     toast.success('Preferensi tersimpan');
+  };
+
+  const [syncing, setSyncing] = useState(false);
+  const syncFromServer = async () => {
+    setSyncing(true);
+    const t = toast.loading('Mengambil data terbaru dari server...');
+    try {
+      const { ok, errors } = await pullAllFromServer();
+      toast.dismiss(t);
+      if (ok) {
+        toast.success('Sinkronisasi selesai. Refresh halaman untuk melihat data terbaru.');
+        // Refresh app-wide state.
+        window.dispatchEvent(new Event('kk_settings_changed'));
+        setForm(settingsApi.get());
+      } else {
+        toast.error(`Sinkronisasi sebagian gagal: ${errors.join(', ')}`);
+      }
+    } catch (err) {
+      toast.dismiss(t);
+      toast.error('Sinkronisasi gagal: ' + err.message);
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const save = () => {
@@ -73,6 +98,13 @@ export default function SettingsPage() {
           <p className="text-muted-foreground text-sm mt-1">Personalisasi toko, template WhatsApp, dan nota.</p>
         </div>
         <div className="flex gap-2">
+          {IS_PHP && (
+            <button onClick={syncFromServer} disabled={syncing} data-testid="btn-sync-server"
+              className="inline-flex items-center gap-2 h-10 px-4 rounded-md border border-border hover:bg-accent text-sm font-medium disabled:opacity-50 transition-colors">
+              <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Sinkronisasi...' : 'Sync Server'}
+            </button>
+          )}
           <button onClick={reset} className="inline-flex items-center gap-2 h-10 px-4 rounded-md border border-border hover:bg-accent text-sm font-medium">
             <RotateCcw className="h-4 w-4" /> Reset
           </button>
