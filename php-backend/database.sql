@@ -45,7 +45,11 @@ CREATE TABLE `users` (
   `phone` VARCHAR(30) DEFAULT NULL,
   `branch_id` VARCHAR(64) DEFAULT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  INDEX `idx_user_branch` (`branch_id`),
+  CONSTRAINT `fk_user_branch`
+    FOREIGN KEY (`branch_id`) REFERENCES `branches`(`id`)
+    ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Customers (global, tidak per cabang; unique phone)
@@ -59,7 +63,11 @@ CREATE TABLE `customers` (
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_phone` (`phone`),
-  INDEX `idx_phone` (`phone`)
+  INDEX `idx_phone` (`phone`),
+  INDEX `idx_customer_branch` (`branch_id`),
+  CONSTRAINT `fk_customer_branch`
+    FOREIGN KEY (`branch_id`) REFERENCES `branches`(`id`)
+    ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Spare Parts
@@ -74,7 +82,11 @@ CREATE TABLE `spareparts` (
   `low_stock_threshold` INT NOT NULL DEFAULT 3,
   `branch_id` VARCHAR(64) DEFAULT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  INDEX `idx_sparepart_branch` (`branch_id`),
+  CONSTRAINT `fk_sparepart_branch`
+    FOREIGN KEY (`branch_id`) REFERENCES `branches`(`id`)
+    ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Repairs (Servis)
@@ -105,7 +117,22 @@ CREATE TABLE `repairs` (
   PRIMARY KEY (`id`),
   INDEX `idx_status` (`status`),
   INDEX `idx_customer` (`customer_id`),
-  INDEX `idx_rating` (`rating`)
+  INDEX `idx_rating` (`rating`),
+  INDEX `idx_repair_branch` (`branch_id`),
+  INDEX `idx_repair_technician` (`technician_id`),
+  INDEX `idx_repair_reply_by` (`admin_reply_by`),
+  CONSTRAINT `fk_repair_customer`
+    FOREIGN KEY (`customer_id`) REFERENCES `customers`(`id`)
+    ON UPDATE CASCADE ON DELETE RESTRICT,
+  CONSTRAINT `fk_repair_technician`
+    FOREIGN KEY (`technician_id`) REFERENCES `users`(`id`)
+    ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT `fk_repair_branch`
+    FOREIGN KEY (`branch_id`) REFERENCES `branches`(`id`)
+    ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT `fk_repair_reply_by`
+    FOREIGN KEY (`admin_reply_by`) REFERENCES `users`(`id`)
+    ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Repair parts used
@@ -117,7 +144,14 @@ CREATE TABLE `repair_parts` (
   `price` DECIMAL(12,2) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   INDEX `idx_repair` (`repair_id`),
-  INDEX `idx_repair_part` (`repair_id`, `sparepart_id`)
+  INDEX `idx_repair_part` (`repair_id`, `sparepart_id`),
+  INDEX `idx_rp_sparepart` (`sparepart_id`),
+  CONSTRAINT `fk_rp_repair`
+    FOREIGN KEY (`repair_id`) REFERENCES `repairs`(`id`)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT `fk_rp_sparepart`
+    FOREIGN KEY (`sparepart_id`) REFERENCES `spareparts`(`id`)
+    ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Payments per repair
@@ -129,7 +163,10 @@ CREATE TABLE `payments` (
   `note` VARCHAR(255) DEFAULT NULL,
   `paid_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  INDEX `idx_pay_repair` (`repair_id`)
+  INDEX `idx_pay_repair` (`repair_id`),
+  CONSTRAINT `fk_pay_repair`
+    FOREIGN KEY (`repair_id`) REFERENCES `repairs`(`id`)
+    ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Application settings (single row: id=1, JSON blob)
