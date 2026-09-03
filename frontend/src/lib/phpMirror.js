@@ -101,6 +101,13 @@ export const phpMirror = {
     remove: (id) => fire('delete', `/api/users/index.php?id=${encodeURIComponent(id)}`),
   },
 
+  branch: {
+    upsert: (b) => (b.__isNew || !b.id)
+      ? fire('post', '/api/branches/index.php', b)
+      : fire('put', `/api/branches/index.php?id=${encodeURIComponent(b.id)}`, b),
+    remove: (id) => fire('delete', `/api/branches/index.php?id=${encodeURIComponent(id)}`),
+  },
+
   settings: {
     update: (patch) => fire('put', '/api/settings/index.php', patch),
   },

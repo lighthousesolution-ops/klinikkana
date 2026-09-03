@@ -20,6 +20,7 @@ import {
   phpRepairsApi,
   phpUsersApi,
   phpSettingsApi,
+  phpBranchesApi,
 } from './apiPhp';
 
 const KEYS = {
@@ -28,6 +29,7 @@ const KEYS = {
   spareparts: 'kk_spareparts',
   repairs: 'kk_repairs',
   settings: 'kk_settings',
+  branches: 'kk_branches',
 };
 
 function write(key, value) {
@@ -53,9 +55,10 @@ export async function pullAllFromServer() {
     phpSparepartsApi.list(),
     phpRepairsApi.list(),
     phpSettingsApi.get(),
+    phpBranchesApi.list(),
   ]);
 
-  const [users, customers, spareparts, repairs, settings] = results;
+  const [users, customers, spareparts, repairs, settings, branches] = results;
   const errors = [];
 
   if (users.status === 'fulfilled')       write(KEYS.users, users.value);
@@ -72,6 +75,12 @@ export async function pullAllFromServer() {
 
   if (settings.status === 'fulfilled')    write(KEYS.settings, settings.value);
   else errors.push(`settings: ${settings.reason?.message || 'failed'}`);
+
+  if (branches.status === 'fulfilled') {
+    // Coerce is_default to boolean because MySQL returns 0/1.
+    const list = (branches.value || []).map((b) => ({ ...b, is_default: !!Number(b.is_default) }));
+    write(KEYS.branches, list);
+  } else errors.push(`branches: ${branches.reason?.message || 'failed'}`);
 
   const ok = errors.length === 0;
   if (!ok) {

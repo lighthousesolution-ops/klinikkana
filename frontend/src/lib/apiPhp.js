@@ -117,6 +117,14 @@ export const phpUsersApi = {
   delete: async (id) => (await http.delete(`/api/users/index.php?id=${id}`)).data,
 };
 
+// ============ BRANCHES ============
+export const phpBranchesApi = {
+  list: async () => (await http.get('/api/branches/index.php')).data,
+  create: async (data) => (await http.post('/api/branches/index.php', data)).data,
+  update: async (id, data) => (await http.put(`/api/branches/index.php?id=${id}`, data)).data,
+  delete: async (id) => (await http.delete(`/api/branches/index.php?id=${id}`)).data,
+};
+
 // ============ SETTINGS ============
 export const phpSettingsApi = {
   get: async () => (await http.get('/api/settings/index.php')).data,

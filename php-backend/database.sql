@@ -20,7 +20,20 @@ DROP TABLE IF EXISTS `repairs`;
 DROP TABLE IF EXISTS `spareparts`;
 DROP TABLE IF EXISTS `customers`;
 DROP TABLE IF EXISTS `users`;
+DROP TABLE IF EXISTS `branches`;
 DROP TABLE IF EXISTS `app_settings`;
+
+-- Branches (cabang toko)
+CREATE TABLE `branches` (
+  `id` VARCHAR(64) NOT NULL,
+  `code` VARCHAR(30) NOT NULL UNIQUE,
+  `name` VARCHAR(120) NOT NULL,
+  `address` TEXT DEFAULT NULL,
+  `phone` VARCHAR(30) DEFAULT NULL,
+  `is_default` TINYINT(1) NOT NULL DEFAULT 0,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Users
 CREATE TABLE `users` (
@@ -133,6 +146,9 @@ SET FOREIGN_KEY_CHECKS=1;
 -- =====================================================================
 -- Password hash placeholder — jalankan install.php SETELAH import untuk
 -- generate bcrypt asli dari password default (admin123 / teknisi123 / kasir123).
+
+INSERT INTO `branches` (`id`,`code`,`name`,`address`,`phone`,`is_default`) VALUES
+('br_main', 'MAIN', 'Cabang Utama', 'Jl. Contoh No. 123, Jakarta', '021-1234567', 1);
 
 INSERT INTO `users` (`id`,`username`,`password_hash`,`full_name`,`role`,`phone`) VALUES
 ('u1', 'admin',    '$2y$10$1zjumd/YoFHzsGp413biBuY28F917f1zGMC/v3GmyF0ttwiuxQV/q', 'Andi Wijaya',    'admin',      '081234567890'),

@@ -94,6 +94,7 @@ export const branchesApi = {
     const item = { id: uid('br'), created_at: new Date().toISOString(), is_default: false, ...data };
     items.push(item);
     write(KEYS.branches, items);
+    phpMirror.branch.upsert({ ...item, __isNew: true });
     fireBranchMutation();
     return item;
   },
@@ -103,6 +104,7 @@ export const branchesApi = {
     if (idx === -1) throw new Error('Cabang tidak ditemukan');
     items[idx] = { ...items[idx], ...data };
     write(KEYS.branches, items);
+    phpMirror.branch.upsert(items[idx]);
     fireBranchMutation();
     return items[idx];
   },
@@ -116,6 +118,7 @@ export const branchesApi = {
       throw new Error('Cabang masih memiliki data tiket atau sparepart. Pindahkan atau hapus dulu.');
     }
     write(KEYS.branches, items.filter((b) => b.id !== id));
+    phpMirror.branch.remove(id);
     fireBranchMutation();
   },
   setCurrent: (id) => {
