@@ -10,13 +10,13 @@ switch ($method) {
     case 'GET': {
         require_role(['admin']);
         if ($id) {
-            $stmt = db()->prepare('SELECT id, username, full_name, role, phone, created_at FROM users WHERE id=?');
+            $stmt = db()->prepare('SELECT id, username, full_name, role, phone, branch_id, created_at FROM users WHERE id=?');
             $stmt->execute([$id]);
             $u = $stmt->fetch();
             if (!$u) json_error('User tidak ditemukan', 404);
             json_response($u);
         }
-        json_response(db()->query('SELECT id, username, full_name, role, phone, created_at FROM users ORDER BY created_at')->fetchAll());
+        json_response(db()->query('SELECT id, username, full_name, role, phone, branch_id, created_at FROM users ORDER BY created_at')->fetchAll());
     }
     case 'POST': {
         require_role(['admin']);
@@ -31,7 +31,7 @@ switch ($method) {
         } catch (PDOException $e) {
             json_error('Username sudah dipakai', 400);
         }
-        $stmt = db()->prepare('SELECT id, username, full_name, role, phone, created_at FROM users WHERE id=?');
+        $stmt = db()->prepare('SELECT id, username, full_name, role, phone, branch_id, created_at FROM users WHERE id=?');
         $stmt->execute([$newId]);
         json_response($stmt->fetch(), 201);
     }
@@ -50,7 +50,7 @@ switch ($method) {
         $sets = [];
         $vals = [];
 
-        $allowedAdmin = ['full_name', 'role', 'phone'];
+        $allowedAdmin = ['full_name', 'role', 'phone', 'branch_id'];
         foreach ($allowedAdmin as $col) {
             if ($me['role'] === 'admin' && array_key_exists($col, $b)) {
                 if ($col === 'role' && !in_array($b[$col], ['admin','technician','cashier'], true)) json_error('Role tidak valid');
@@ -73,7 +73,7 @@ switch ($method) {
             $stmt = db()->prepare('UPDATE users SET ' . implode(', ', $sets) . ' WHERE id=?');
             $stmt->execute($vals);
         }
-        $stmt = db()->prepare('SELECT id, username, full_name, role, phone, created_at FROM users WHERE id=?');
+        $stmt = db()->prepare('SELECT id, username, full_name, role, phone, branch_id, created_at FROM users WHERE id=?');
         $stmt->execute([$id]);
         json_response($stmt->fetch());
     }

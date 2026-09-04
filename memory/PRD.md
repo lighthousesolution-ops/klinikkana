@@ -20,6 +20,13 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-02) — Iteration 14 (Bug fix: branch_id user tidak tersinkron)
+- **`/app/php-backend/api/users/index.php` GET** — Menambahkan `branch_id` di SELECT (list + single). Sebelumnya UI selalu menampilkan "Semua" walau di DB sudah tersimpan cabang, karena field tidak dikirim ke frontend.
+- **`/app/php-backend/api/users/index.php` PUT** — Menambahkan `branch_id` ke `$allowedAdmin`. Sebelumnya admin edit cabang user tidak tersimpan ke MySQL. Sekarang partial PUT dengan `branch_id: null` juga bekerja (di-set NULL).
+- **`/app/php-backend/api/users/index.php` POST response** — Sudah include `branch_id` sehingga user baru langsung tampil dengan cabang benar tanpa perlu refresh dari server.
+- Deploy: user tinggal `rsync` file `api/users/index.php` ke VPS.
+
+
 ## Implemented (2026-02) — Iteration 13 (Perbaikan PHP Backend untuk Sync MySQL VPS)
 Konteks: user melaporkan MySQL di VPS tidak berubah walau UI berjalan. Testing agent (iter 10-12) menemukan sederet defect PHP setelah `phpMirror` diaktifkan. Sekarang semua defect kritis diperbaiki.
 - **`repairs/index.php` PUT** — Dulu mutually-exclusive antara update status dan update field; sekarang dua-duanya jalan bareng via cek `hasFields`. SET clause dibangun DINAMIS dari `array_key_exists`, jadi partial PUT (mis. hanya `{notes}`) tidak lagi menghapus kolom lain. `completed_at` / `picked_up_at` di-guard dengan `COALESCE(...)` sehingga tidak di-restamp saat mirror kirim status sama berulang.
