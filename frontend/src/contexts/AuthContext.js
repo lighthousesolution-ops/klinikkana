@@ -23,6 +23,40 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
+  // Auto-refresh from MySQL whenever the tab comes back into focus (user
+  // switched away and back, unlocked device, resumed from another app...).
+  // Also refresh every 60s while the tab is active, so long sessions stay
+  // fresh without needing a manual "Sync" click.
+  useEffect(() => {
+    if (!IS_PHP) return undefined;
+    let pollId;
+
+    const refresh = () => {
+      // Skip if the user is not logged in or the tab is hidden — avoid
+      // wasted requests.
+      if (document.hidden) return;
+      const token = localStorage.getItem('kk_token');
+      if (!token) return;
+      pullAllFromServer().then(() => {
+        // Broadcast so pages that cache derived state can re-read.
+        window.dispatchEvent(new Event('kk_settings_changed'));
+      });
+    };
+
+    const onVisibility = () => { if (!document.hidden) refresh(); };
+    const onFocus = () => refresh();
+
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onFocus);
+    pollId = setInterval(refresh, 60_000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
+      clearInterval(pollId);
+    };
+  }, []);
+
   const login = async (username, password) => {
     if (IS_PHP) {
       // Real PHP backend: token + user come from MySQL.
