@@ -10,7 +10,7 @@ $username = trim($body['username'] ?? '');
 $password = $body['password'] ?? '';
 if (!$username || !$password) json_error('Username dan password wajib');
 
-$stmt = db()->prepare('SELECT id, username, password_hash, full_name, role, phone FROM users WHERE username = ? LIMIT 1');
+$stmt = db()->prepare('SELECT id, username, password_hash, full_name, role, phone, branch_id FROM users WHERE username = ? LIMIT 1');
 $stmt->execute([$username]);
 $user = $stmt->fetch();
 

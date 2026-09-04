@@ -33,8 +33,11 @@ export function BranchProvider({ children }) {
     if (user.role !== 'admin') {
       return user.branch_id || (branches.find((b) => b.is_default)?.id ?? null);
     }
-    // Admin: use stored preference (or null = all)
-    return branchesApi.getCurrent();
+    // Admin: honor an explicit switch (localStorage), else fall back to
+    // the admin's own assigned branch, else "All".
+    const stored = branchesApi.getCurrent();
+    if (stored !== null && stored !== undefined) return stored;
+    return user.branch_id || null;
   }, [user, branches, tick]);
 
   const currentBranch = currentBranchId ? branches.find((b) => b.id === currentBranchId) : null;

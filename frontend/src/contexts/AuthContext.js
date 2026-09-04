@@ -58,6 +58,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (username, password) => {
+    // Clear any lingering branch selection from a previous session so the new
+    // user starts from their own assigned branch, not the last admin's pick.
+    localStorage.removeItem('kk_current_branch');
     if (IS_PHP) {
       // Real PHP backend: token + user come from MySQL.
       const { user } = await phpAuthApi.login(username, password);
@@ -73,6 +76,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    localStorage.removeItem('kk_current_branch');
     if (IS_PHP) phpAuthApi.logout();
     authApi.logout();
     setUser(null);

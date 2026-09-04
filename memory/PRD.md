@@ -20,6 +20,14 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-02) — Iteration 15 (Bug fix: cabang di header selalu Sriwijaya)
+- **`/app/php-backend/api/auth/login.php`** — SELECT sekarang include `branch_id` sehingga objek `user` yang dikirim ke frontend membawa cabangnya.
+- **`/app/php-backend/includes/auth.php`** — `auth_user()` SELECT include `branch_id` (dipakai oleh `me.php` dan semua endpoint yang panggil `auth_user()`).
+- **`/app/frontend/src/contexts/BranchContext.js`** — Admin fallback: pilihan localStorage → `user.branch_id` → "Semua". Non-admin tetap terkunci ke `user.branch_id`.
+- **`/app/frontend/src/contexts/AuthContext.js`** — `login()` dan `logout()` menghapus `kk_current_branch` supaya user baru tidak mewarisi pilihan cabang user sebelumnya di device yang sama.
+- Deploy: `rsync` `api/auth/login.php`, `includes/auth.php`, dan build frontend baru ke VPS.
+
+
 ## Implemented (2026-02) — Iteration 14 (Bug fix: branch_id user tidak tersinkron)
 - **`/app/php-backend/api/users/index.php` GET** — Menambahkan `branch_id` di SELECT (list + single). Sebelumnya UI selalu menampilkan "Semua" walau di DB sudah tersimpan cabang, karena field tidak dikirim ke frontend.
 - **`/app/php-backend/api/users/index.php` PUT** — Menambahkan `branch_id` ke `$allowedAdmin`. Sebelumnya admin edit cabang user tidak tersimpan ke MySQL. Sekarang partial PUT dengan `branch_id: null` juga bekerja (di-set NULL).
