@@ -33,10 +33,13 @@ switch ($method) {
         $bid = $b['id'] ?? null;
         if (!$bid) json_error('id wajib');
 
-        // Upsert semantics — used by phpMirror push.
+        // Upsert semantics — used by phpMirror push. We ignore any
+        // `created_at` from the client because JS ISO strings
+        // ("2026-09-04T16:44:03.123Z") are rejected by MySQL TIMESTAMP;
+        // let the column default to CURRENT_TIMESTAMP on insert.
         $stmt = db()->prepare(
-            'INSERT INTO branches (id, code, name, address, phone, is_default, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
+            'INSERT INTO branches (id, code, name, address, phone, is_default)
+             VALUES (?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                code = VALUES(code),
                name = VALUES(name),
@@ -51,7 +54,6 @@ switch ($method) {
             $b['address'] ?? null,
             $b['phone'] ?? null,
             !empty($b['is_default']) ? 1 : 0,
-            $b['created_at'] ?? null,
         ]);
 
         $stmt = db()->prepare('SELECT * FROM branches WHERE id=?');
