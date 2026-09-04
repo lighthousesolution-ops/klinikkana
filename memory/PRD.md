@@ -20,6 +20,13 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-02) — Iteration 16 (Bug fix: branch_id tiket baru selalu br1)
+- **`/app/frontend/src/lib/store.js`** — Tambah helper `resolveBranchIdForNew(dataBranchId)` yang mengembalikan branch berdasarkan prioritas: `data.branch_id` eksplisit → (non-admin) `user.branch_id` → (admin) pilihan BranchSelector aktif → `user.branch_id` admin → `is_default`.
+- **`repairsApi.create`** — Pakai helper (bukan lagi baca customer.branch_id yang sering null → jatuh ke `is_default`/br1). Customer.branch_id sekarang hanya jadi last-ditch fallback.
+- **`customersApi.create`** dan **`sparepartsApi.create`** — Pakai helper yang sama supaya pola tidak berulang.
+- Deploy: build ulang frontend saja (`yarn build` → `rsync build/` ke VPS, tanpa `--delete`).
+
+
 ## Implemented (2026-02) — Iteration 15 (Bug fix: cabang di header selalu Sriwijaya)
 - **`/app/php-backend/api/auth/login.php`** — SELECT sekarang include `branch_id` sehingga objek `user` yang dikirim ke frontend membawa cabangnya.
 - **`/app/php-backend/includes/auth.php`** — `auth_user()` SELECT include `branch_id` (dipakai oleh `me.php` dan semua endpoint yang panggil `auth_user()`).

@@ -85,6 +85,27 @@ function fireBranchMutation() {
   window.dispatchEvent(new Event('kk_branch_changed'));
 }
 
+// Resolve the branch to assign to a newly-created record (repair, customer,
+// sparepart). Priority:
+//   1) explicit `data.branch_id` from the caller
+//   2) non-admin  → their own assigned branch (they can't switch anyway)
+//      admin     → their current branch selection (from BranchSelector),
+//                  else their own assigned branch, else the default branch
+// Kept in store.js (not BranchContext) because store APIs are called from
+// non-React code paths too.
+function resolveBranchIdForNew(dataBranchId) {
+  if (dataBranchId) return dataBranchId;
+  let currentUser = null;
+  try { currentUser = JSON.parse(localStorage.getItem('kk_user') || 'null'); } catch (e) { /* ignore */ }
+  const branches = read(KEYS.branches, []);
+  const defaultBranchId = branches.find((b) => b.is_default)?.id || null;
+  if (currentUser?.role !== 'admin') {
+    return currentUser?.branch_id || defaultBranchId;
+  }
+  const selected = localStorage.getItem(KEYS.currentBranch) || null;
+  return selected || currentUser?.branch_id || defaultBranchId;
+}
+
 export const branchesApi = {
   list: () => read(KEYS.branches, []),
   get: (id) => read(KEYS.branches, []).find((b) => b.id === id),
@@ -249,7 +270,7 @@ export const customersApi = {
     const customers = read(KEYS.customers, []);
     const dup = findDuplicatePhone(customers, data.phone);
     if (dup) throw new Error(`Nomor HP sudah dipakai oleh pelanggan "${dup.name}"`);
-    const branch_id = data.branch_id || branchesApi.getCurrent() || (branchesApi.list().find((b) => b.is_default)?.id) || null;
+    const branch_id = resolveBranchIdForNew(data.branch_id);
     const item = { id: uid('c'), created_at: new Date().toISOString(), branch_id, ...data };
     customers.push(item);
     write(KEYS.customers, customers);
@@ -308,7 +329,7 @@ export const sparepartsApi = {
   create: (data) => {
     const items = read(KEYS.spareparts, []);
     if (items.some((s) => s.sku === data.sku)) throw new Error('SKU sudah dipakai');
-    const branch_id = data.branch_id || branchesApi.getCurrent() || (branchesApi.list().find((b) => b.is_default)?.id) || null;
+    const branch_id = resolveBranchIdForNew(data.branch_id);
     const item = { id: uid('sp'), branch_id, ...data };
     items.push(item);
     write(KEYS.spareparts, items);
@@ -429,12 +450,14 @@ export const repairsApi = {
   byCustomer: (customer_id) => read(KEYS.repairs, []).filter((r) => r.customer_id === customer_id),
   create: (data) => {
     const items = read(KEYS.repairs, []);
-    // Inherit branch from customer, fallback to current/default
-    let branch_id = data.branch_id;
+    // Inherit branch from explicit payload → user context → customer → default.
+    // The customer fallback is intentional only as a last-ditch guess because
+    // customers are GLOBAL and their branch_id is often null.
+    let branch_id = resolveBranchIdForNew(data.branch_id);
     if (!branch_id && data.customer_id) {
       const customers = read(KEYS.customers, []);
       const cust = customers.find((c) => c.id === data.customer_id);
-      branch_id = cust?.branch_id || branchesApi.getCurrent() || (branchesApi.list().find((b) => b.is_default)?.id) || null;
+      branch_id = cust?.branch_id || null;
     }
     const item = {
       id: uid('r'),
