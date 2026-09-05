@@ -122,6 +122,13 @@ export const phpMirror = {
     remove: (id) => fire('delete', `/api/service-items/index.php?id=${encodeURIComponent(id)}`),
   },
 
+  servicePackage: {
+    upsert: (p) => (p.__isNew || !p.id)
+      ? fire('post', '/api/service-packages/index.php', p)
+      : fire('put', `/api/service-packages/index.php?id=${encodeURIComponent(p.id)}`, p),
+    remove: (id) => fire('delete', `/api/service-packages/index.php?id=${encodeURIComponent(id)}`),
+  },
+
   settings: {
     update: (patch) => fire('put', '/api/settings/index.php', patch),
   },

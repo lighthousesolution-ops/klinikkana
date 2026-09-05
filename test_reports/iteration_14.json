@@ -1,0 +1,25 @@
+{
+  "summary": "Frontend-only testing (local data mode) of two new features: Top 5 Jasa Terlaris chart in Dashboard and Preset Paket Jasa (bundle CRUD + picker integration). All 20 acceptance points from the review request PASSED. No blocking issues found.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "RepairNew (pre-existing, not related to new features)", "issues": ["React hydration warning: <span> rendered inside <option> for customer/brand selects (from visual-editing instrumentation attrs). Warning only, does not affect functionality. Reported for awareness."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ServicePicker.applyPackage silently returns when all items in a package were deleted (included.length===0). Consider showing a toast so users understand why nothing was added.",
+    "PackageModal accepts spread of `initial` which may include id/created_at fields; servicePackagesApi.update should ideally strip non-mutable fields (functional test passes)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only)", "frontend": "100%"},
+  "test_credentials": "admin/admin123, teknisi/teknisi123 (from /app/frontend/src/lib/mockData.js)",
+  "seed_data_creation": "Reset localStorage before test to load SEED_SERVICE_PACKAGES (3 seed paket).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iteration_14 verified: (1) chart-top-services present with Trophy icon; empty state shown when no monthly services; populated with #1/#2/#3 cards after creating a ticket with services. (2) btn-add-service-package appears with primary border; pkg-modal lists 3 seed packages (Paket LCD+Baterai, Paket Charging Bersih, Paket Software Bersih) each with chips + total. Clicking a package explodes into individual rows with 'Paket XYZ' badge, price editable, total recomputes. Custom row can be added on top. (3) After submit, tiket detail /repairs/:id shows all 3 services in service-list; dashboard chart updated correctly. (4) Settings: section-service-packages visible for admin, hidden for teknisi (section-service-catalog also admin-only). Package CRUD works: create (Test Paket QA), validation toast 'Pilih minimal 1 jasa untuk paket' shows when no items selected, edit rename works, delete removes card. (5) Teknisi hidden from CRUD but can still use Tambah Paket button in ServicePicker.",
+  "rca of the issue": "No issues to RCA."
+}

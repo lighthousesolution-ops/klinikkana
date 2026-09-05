@@ -2,7 +2,7 @@
 // When REACT_APP_DATA_MODE=php, every mutation is also mirrored to the PHP
 // backend via phpMirror (write-through) so MySQL on the VPS stays in sync.
 
-import { SEED_USERS, SEED_CUSTOMERS, SEED_SPAREPARTS, SEED_REPAIRS, SEED_BRANCHES, SEED_SERVICE_CATEGORIES, SEED_SERVICE_ITEMS } from './mockData';
+import { SEED_USERS, SEED_CUSTOMERS, SEED_SPAREPARTS, SEED_REPAIRS, SEED_BRANCHES, SEED_SERVICE_CATEGORIES, SEED_SERVICE_ITEMS, SEED_SERVICE_PACKAGES } from './mockData';
 import { phpMirror } from './phpMirror';
 
 const KEYS = {
@@ -13,6 +13,7 @@ const KEYS = {
   branches: 'kk_branches',
   serviceCategories: 'kk_service_categories',
   serviceItems: 'kk_service_items',
+  servicePackages: 'kk_service_packages',
   movements: 'kk_stock_movements',
   currentBranch: 'kk_current_branch',
   session: 'kk_session',
@@ -60,6 +61,7 @@ export function ensureSeed() {
     write(KEYS.branches, SEED_BRANCHES);
     write(KEYS.serviceCategories, SEED_SERVICE_CATEGORIES);
     write(KEYS.serviceItems, SEED_SERVICE_ITEMS);
+    write(KEYS.servicePackages, SEED_SERVICE_PACKAGES);
     write(KEYS.settings, DEFAULT_SETTINGS);
     write(KEYS.seeded, '1');
     // Fire cross-device sync for every seeded repair so first-time public
@@ -82,6 +84,9 @@ export function ensureSeed() {
   }
   if (!localStorage.getItem(KEYS.serviceItems)) {
     write(KEYS.serviceItems, SEED_SERVICE_ITEMS);
+  }
+  if (!localStorage.getItem(KEYS.servicePackages)) {
+    write(KEYS.servicePackages, SEED_SERVICE_PACKAGES);
   }
 }
 
@@ -236,6 +241,44 @@ export const serviceItemsApi = {
     const items = read(KEYS.serviceItems, []).filter((s) => s.id !== id);
     write(KEYS.serviceItems, items);
     phpMirror.serviceItem.remove(id);
+    fireServiceMutation();
+  },
+};
+
+export const servicePackagesApi = {
+  list: () => read(KEYS.servicePackages, []).map((p) => ({ ...p, items_json: Array.isArray(p.items_json) ? p.items_json : [] })).sort((a, b) => a.name.localeCompare(b.name)),
+  get: (id) => read(KEYS.servicePackages, []).find((p) => p.id === id),
+  create: (data) => {
+    const items = read(KEYS.servicePackages, []);
+    if (!data.name?.trim()) throw new Error('Nama paket wajib');
+    const item = {
+      id: uid('sp_pkt'),
+      description: '',
+      items_json: [],
+      ...data,
+      items_json: Array.isArray(data.items_json) ? data.items_json : [],
+    };
+    items.push(item);
+    write(KEYS.servicePackages, items);
+    phpMirror.servicePackage.upsert({ ...item, __isNew: true });
+    fireServiceMutation();
+    return item;
+  },
+  update: (id, data) => {
+    const items = read(KEYS.servicePackages, []);
+    const idx = items.findIndex((p) => p.id === id);
+    if (idx === -1) throw new Error('Paket tidak ditemukan');
+    items[idx] = { ...items[idx], ...data };
+    if (data.items_json !== undefined) items[idx].items_json = Array.isArray(data.items_json) ? data.items_json : [];
+    write(KEYS.servicePackages, items);
+    phpMirror.servicePackage.upsert(items[idx]);
+    fireServiceMutation();
+    return items[idx];
+  },
+  delete: (id) => {
+    const items = read(KEYS.servicePackages, []).filter((p) => p.id !== id);
+    write(KEYS.servicePackages, items);
+    phpMirror.servicePackage.remove(id);
     fireServiceMutation();
   },
 };

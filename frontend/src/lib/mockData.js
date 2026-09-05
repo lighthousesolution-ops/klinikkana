@@ -37,6 +37,12 @@ export const SEED_SERVICE_ITEMS = [
   { id: 'si_air_check',  category_id: 'sc_air',      name: 'Cek Kerusakan Akibat Air',        default_price:  50000, duration_minutes: 30 },
 ];
 
+export const SEED_SERVICE_PACKAGES = [
+  { id: 'sp_pkt_full',   name: 'Paket LCD + Baterai',   description: 'Paket lengkap ganti layar + baterai',    items_json: ['si_lcd_ori', 'si_bat_std'] },
+  { id: 'sp_pkt_charge', name: 'Paket Charging Bersih', description: 'Bersih port + ganti konektor jika perlu', items_json: ['si_port_clean', 'si_port_std'] },
+  { id: 'sp_pkt_soft',   name: 'Paket Software Bersih', description: 'Flash ulang + unlock pola',               items_json: ['si_flash', 'si_unlock'] },
+];
+
 
 export const SEED_USERS = [
   { id: 'u1', username: 'admin', password: 'admin123', full_name: 'Andi Wijaya', role: 'admin', phone: '081234567890', branch_id: null,  created_at: '2025-01-05T09:00:00Z' },

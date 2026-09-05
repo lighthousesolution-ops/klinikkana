@@ -18,6 +18,7 @@ DROP TABLE IF EXISTS `payments`;
 DROP TABLE IF EXISTS `repair_parts`;
 DROP TABLE IF EXISTS `repairs`;
 DROP TABLE IF EXISTS `spareparts`;
+DROP TABLE IF EXISTS `service_packages`;
 DROP TABLE IF EXISTS `service_items`;
 DROP TABLE IF EXISTS `service_categories`;
 DROP TABLE IF EXISTS `customers`;
@@ -114,6 +115,17 @@ CREATE TABLE `service_items` (
   CONSTRAINT `fk_service_category`
     FOREIGN KEY (`category_id`) REFERENCES `service_categories`(`id`)
     ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Service Packages (Preset bundel jasa, mis. "Paket Ganti LCD + Baterai")
+-- items_json: JSON array of service_item_id (referensi ke service_items).
+CREATE TABLE `service_packages` (
+  `id` VARCHAR(64) NOT NULL,
+  `name` VARCHAR(150) NOT NULL,
+  `description` TEXT DEFAULT NULL,
+  `items_json` TEXT DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Repairs (Servis)
@@ -274,6 +286,12 @@ INSERT INTO `service_items` (`id`,`category_id`,`name`,`default_price`,`duration
 -- Kerusakan Air
 ('si_air_service','sc_air',      'Service Kena Air (Ultrasonic Cleaning)', 200000, 120),
 ('si_air_check',  'sc_air',      'Cek Kerusakan Akibat Air',         50000, 30);
+
+-- Seed 3 paket populer
+INSERT INTO `service_packages` (`id`,`name`,`description`,`items_json`) VALUES
+('sp_pkt_full',   'Paket LCD + Baterai',        'Paket lengkap ganti layar + baterai',   '["si_lcd_ori","si_bat_std"]'),
+('sp_pkt_charge', 'Paket Charging Bersih',      'Bersih port + ganti konektor jika perlu','["si_port_clean","si_port_std"]'),
+('sp_pkt_soft',   'Paket Software Bersih',      'Flash ulang + unlock pola',              '["si_flash","si_unlock"]');
 
 INSERT INTO `repairs`
 (`id`,`ticket_no`,`customer_id`,`device_brand`,`device_model`,`serial_no`,`complaint`,`notes`,`status`,`technician_id`,`service_fee`,`deposit`,`created_at`,`completed_at`,`picked_up_at`) VALUES

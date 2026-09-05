@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Wrench, Plus, Pencil, Trash2, X, ChevronRight } from 'lucide-react';
+import { Wrench, Plus, Pencil, Trash2, X, ChevronRight, Layers, Check } from 'lucide-react';
 import { toast } from 'sonner';
-import { serviceCategoriesApi, serviceItemsApi } from '@/lib/store';
+import { serviceCategoriesApi, serviceItemsApi, servicePackagesApi } from '@/lib/store';
 import { formatIDR } from '@/lib/utils';
 
 /**
@@ -149,6 +149,198 @@ export default function ServiceCatalogSection() {
 
       <CategoryModal {...openCatModal} onClose={() => setOpenCatModal({ open: false, initial: null })} onSaved={refresh} />
       <ItemModal {...openItemModal} onClose={() => setOpenItemModal({ open: false, initial: null, categoryId: null })} onSaved={refresh} />
+    </div>
+  );
+}
+
+// =====================================================================
+// Preset Paket Jasa — bundel jasa yang bisa dipilih sekali klik di picker.
+// Ditampilkan sebagai section tambahan di halaman Konfigurasi (admin only).
+// =====================================================================
+export function ServicePackageSection() {
+  const [tick, setTick] = useState(0);
+  const refresh = () => setTick((t) => t + 1);
+  const [modal, setModal] = useState({ open: false, initial: null });
+
+  const packages = servicePackagesApi.list();
+  const items = serviceItemsApi.list();
+  const itemById = Object.fromEntries(items.map((i) => [i.id, i]));
+
+  const del = (p) => {
+    if (!window.confirm(`Hapus paket "${p.name}"?`)) return;
+    try {
+      servicePackagesApi.delete(p.id);
+      toast.success('Paket dihapus');
+      refresh();
+    } catch (e) { toast.error(e.message); }
+  };
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-6" data-testid="section-service-packages">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div className="h-9 w-9 rounded-md bg-accent grid place-items-center text-primary"><Layers className="h-4 w-4" /></div>
+          <div>
+            <div className="overline text-muted-foreground">Preset Bundel</div>
+            <h3 className="font-display text-lg font-semibold tracking-tight">Paket Jasa</h3>
+          </div>
+        </div>
+        <button onClick={() => setModal({ open: true, initial: null })}
+          data-testid="btn-new-service-package"
+          className="inline-flex items-center gap-2 h-9 px-3 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-semibold transition-colors">
+          <Plus className="h-3.5 w-3.5" /> Paket Baru
+        </button>
+      </div>
+
+      <p className="text-xs text-muted-foreground mb-4">
+        Bundel dari beberapa jasa (mis. Paket LCD + Baterai). Teknisi bisa pilih paket sekali klik saat buat tiket — semua jasa di dalamnya langsung masuk sebagai baris terpisah dan tetap bisa diedit harganya.
+      </p>
+
+      {packages.length === 0 ? (
+        <div className="p-6 text-center text-sm text-muted-foreground border border-dashed border-border rounded-md" data-testid="service-packages-empty">
+          Belum ada paket. Klik "Paket Baru" untuk bikin bundel.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {packages.map((p) => {
+            const included = (p.items_json || []).map((iid) => itemById[iid]).filter(Boolean);
+            const total = included.reduce((s, it) => s + (Number(it.default_price) || 0), 0);
+            return (
+              <div key={p.id} data-testid={`pkg-card-${p.id}`} className="rounded-md border border-border p-4">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm">{p.name}</div>
+                    {p.description && <div className="text-xs text-muted-foreground mt-0.5">{p.description}</div>}
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button onClick={() => setModal({ open: true, initial: p })}
+                      data-testid={`btn-edit-pkg-${p.id}`}
+                      className="h-7 w-7 grid place-items-center rounded-md hover:bg-accent transition-colors">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={() => del(p)}
+                      data-testid={`btn-delete-pkg-${p.id}`}
+                      className="h-7 w-7 grid place-items-center rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {included.length === 0 ? (
+                    <span className="text-[11px] italic text-muted-foreground">Tidak ada jasa di paket ini</span>
+                  ) : included.map((it) => (
+                    <span key={it.id} className="text-[11px] px-2 py-0.5 rounded-full bg-accent border border-border">{it.name}</span>
+                  ))}
+                </div>
+                <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{included.length} jasa</span>
+                  <span className="font-mono font-semibold text-sm">{formatIDR(total)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <PackageModal {...modal} onClose={() => setModal({ open: false, initial: null })} onSaved={refresh} />
+    </div>
+  );
+}
+
+function PackageModal({ open, initial, onClose, onSaved }) {
+  const [form, setForm] = useState(initial || { name: '', description: '', items_json: [] });
+  React.useEffect(() => {
+    setForm(initial ? { ...initial, items_json: Array.isArray(initial.items_json) ? initial.items_json : [] }
+                    : { name: '', description: '', items_json: [] });
+  }, [initial, open]);
+  const categories = serviceCategoriesApi.list();
+  const items = serviceItemsApi.list();
+  if (!open) return null;
+
+  const toggle = (id) => {
+    setForm((f) => ({
+      ...f,
+      items_json: f.items_json.includes(id) ? f.items_json.filter((x) => x !== id) : [...f.items_json, id],
+    }));
+  };
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) return toast.error('Nama paket wajib');
+    if (form.items_json.length === 0) return toast.error('Pilih minimal 1 jasa untuk paket');
+    try {
+      if (initial?.id) servicePackagesApi.update(initial.id, form);
+      else servicePackagesApi.create(form);
+      toast.success(initial?.id ? 'Paket diperbarui' : 'Paket ditambahkan');
+      onSaved();
+      onClose();
+    } catch (err) { toast.error(err.message); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-black/50 animate-fade-in" onClick={onClose}>
+      <div className="w-full max-w-2xl bg-card border border-border rounded-lg shadow-xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h3 className="font-display text-lg font-semibold tracking-tight">{initial?.id ? 'Edit Paket' : 'Paket Baru'}</h3>
+          <button onClick={onClose} className="h-8 w-8 grid place-items-center rounded-md hover:bg-accent"><X className="h-4 w-4" /></button>
+        </div>
+        <form onSubmit={submit} className="flex-1 overflow-y-auto">
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Nama Paket *</label>
+              <input required data-testid="pkg-name-input"
+                value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="mis. Paket LCD + Baterai"
+                className="w-full h-10 px-3 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/40" />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Deskripsi</label>
+              <textarea rows={2} data-testid="pkg-desc-input"
+                value={form.description || ''} onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="Cerita singkat tentang paket ini (opsional)"
+                className="w-full px-3 py-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none text-sm" />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Jasa dalam Paket * <span className="text-xs text-muted-foreground font-normal">({form.items_json.length} terpilih)</span>
+              </label>
+              <div className="space-y-3 max-h-[40vh] overflow-y-auto rounded-md border border-border p-3">
+                {categories.map((c) => {
+                  const catItems = items.filter((i) => i.category_id === c.id);
+                  if (catItems.length === 0) return null;
+                  return (
+                    <div key={c.id}>
+                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">{c.name}</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        {catItems.map((it) => {
+                          const active = form.items_json.includes(it.id);
+                          return (
+                            <button type="button" key={it.id} onClick={() => toggle(it.id)}
+                              data-testid={`pkg-toggle-${it.id}`}
+                              className={`text-left px-2.5 py-1.5 rounded border transition-colors flex items-start gap-2 ${active ? 'border-primary bg-primary/10' : 'border-border hover:bg-accent'}`}>
+                              <div className={`h-4 w-4 rounded shrink-0 mt-0.5 grid place-items-center border ${active ? 'bg-primary border-primary text-primary-foreground' : 'border-input'}`}>
+                                {active && <Check className="h-3 w-3" />}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs font-medium truncate">{it.name}</div>
+                                <div className="text-[10px] text-muted-foreground font-mono">{formatIDR(Number(it.default_price) || 0)}</div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <div className="px-5 py-4 border-t border-border flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="h-10 px-4 rounded-md border border-border hover:bg-accent text-sm font-medium">Batal</button>
+            <button type="submit" data-testid="btn-save-pkg" className="h-10 px-5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-semibold">Simpan</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

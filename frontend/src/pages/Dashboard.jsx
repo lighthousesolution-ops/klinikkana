@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Wrench, DollarSign, CheckCircle2, AlertTriangle, Plus, ArrowRight, Package } from 'lucide-react';
+import { Wrench, DollarSign, CheckCircle2, AlertTriangle, Plus, ArrowRight, Package, Trophy } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { repairsApi, sparepartsApi, customersApi, computeTotal } from '@/lib/store';
 import { useAuth } from '@/contexts/AuthContext';
@@ -90,6 +90,32 @@ export default function DashboardPage() {
   const lowStockItems = spareparts.filter((s) => s.stock <= s.low_stock_threshold).slice(0, 5);
   const customerMap = Object.fromEntries(customers.map((c) => [c.id, c]));
 
+  // Top 5 jasa terlaris bulan ini — aggregate dari services_json
+  const topServices = useMemo(() => {
+    const now = new Date();
+    const yr = now.getFullYear();
+    const mo = now.getMonth();
+    const monthly = repairs.filter((r) => {
+      const d = new Date(r.created_at);
+      return d.getFullYear() === yr && d.getMonth() === mo;
+    });
+    const agg = {};
+    monthly.forEach((r) => {
+      const services = Array.isArray(r.services_json) ? r.services_json : [];
+      services.forEach((s) => {
+        const name = (s.name || '').trim();
+        if (!name) return;
+        const key = name.toLowerCase();
+        if (!agg[key]) agg[key] = { name, count: 0, revenue: 0 };
+        agg[key].count += 1;
+        agg[key].revenue += Number(s.price) || 0;
+      });
+    });
+    return Object.values(agg)
+      .sort((a, b) => b.count - a.count || b.revenue - a.revenue)
+      .slice(0, 5);
+  }, [repairs]);
+
   return (
     <div className="space-y-8 animate-fade-in" data-testid="dashboard-page">
       {/* Header */}
@@ -165,6 +191,61 @@ export default function DashboardPage() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Top 5 Jasa Terlaris Bulan Ini */}
+      <div className="rounded-lg border border-border bg-card p-5" data-testid="chart-top-services">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-9 rounded-md bg-accent grid place-items-center text-primary"><Trophy className="h-4 w-4" /></div>
+            <div>
+              <div className="overline text-muted-foreground">Produk Andalan</div>
+              <h3 className="font-display text-lg font-semibold tracking-tight">Top 5 Jasa Bulan Ini</h3>
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {topServices.reduce((s, x) => s + x.count, 0)} order jasa
+          </div>
+        </div>
+        {topServices.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground border border-dashed border-border rounded-md" data-testid="top-services-empty">
+            <Trophy className="h-6 w-6 mx-auto mb-2 opacity-40" />
+            Belum ada jasa dipesan bulan ini. Katalog jasa akan mulai muncul di sini setelah teknisi buat tiket baru.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={Math.max(180, topServices.length * 44)}>
+            <BarChart data={topServices} layout="vertical" margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+              <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+              <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} width={180} />
+              <Tooltip
+                contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                cursor={{ fill: 'hsl(var(--accent))' }}
+                formatter={(v, name) => name === 'revenue' ? formatIDR(v) : `${v}x`}
+                labelFormatter={(l) => l}
+              />
+              <Bar dataKey="count" name="Jumlah Order" fill="hsl(var(--primary))" radius={[0, 6, 6, 0]}>
+                {topServices.map((_, i) => (
+                  <Cell key={i} fill={i === 0 ? 'hsl(var(--primary))' : i === 1 ? '#3B82F6' : i === 2 ? '#10B981' : i === 3 ? '#F59E0B' : '#6B7280'} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+        {topServices.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 mt-4 pt-4 border-t border-border">
+            {topServices.map((s, i) => (
+              <div key={s.name} data-testid={`top-service-${i}`} className="rounded-md border border-border p-2.5">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">#{i + 1}</div>
+                <div className="text-xs font-semibold truncate mt-0.5" title={s.name}>{s.name}</div>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className="text-base font-display font-bold">{s.count}x</span>
+                  <span className="text-[11px] text-muted-foreground font-mono">{formatIDR(s.revenue)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Recent + Low stock */}

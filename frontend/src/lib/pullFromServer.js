@@ -23,6 +23,7 @@ import {
   phpBranchesApi,
   phpServiceCategoriesApi,
   phpServiceItemsApi,
+  phpServicePackagesApi,
 } from './apiPhp';
 
 const KEYS = {
@@ -34,6 +35,7 @@ const KEYS = {
   branches: 'kk_branches',
   serviceCategories: 'kk_service_categories',
   serviceItems: 'kk_service_items',
+  servicePackages: 'kk_service_packages',
 };
 
 function write(key, value) {
@@ -62,9 +64,10 @@ export async function pullAllFromServer() {
     phpBranchesApi.list(),
     phpServiceCategoriesApi.list(),
     phpServiceItemsApi.list(),
+    phpServicePackagesApi.list(),
   ]);
 
-  const [users, customers, spareparts, repairs, settings, branches, serviceCategories, serviceItems] = results;
+  const [users, customers, spareparts, repairs, settings, branches, serviceCategories, serviceItems, servicePackages] = results;
   const errors = [];
 
   if (users.status === 'fulfilled')       write(KEYS.users, users.value);
@@ -100,6 +103,15 @@ export async function pullAllFromServer() {
     }));
     write(KEYS.serviceItems, list);
   } else errors.push(`service_items: ${serviceItems.reason?.message || 'failed'}`);
+
+  if (servicePackages.status === 'fulfilled') {
+    // items_json arrives decoded (array); safeguard the type in case of legacy rows.
+    const list = (servicePackages.value || []).map((p) => ({
+      ...p,
+      items_json: Array.isArray(p.items_json) ? p.items_json : [],
+    }));
+    write(KEYS.servicePackages, list);
+  } else errors.push(`service_packages: ${servicePackages.reason?.message || 'failed'}`);
 
   const ok = errors.length === 0;
   if (!ok) {

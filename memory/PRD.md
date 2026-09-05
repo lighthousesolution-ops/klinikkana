@@ -20,6 +20,28 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-02) — Iteration 18 (Laporan Jasa Terlaris + Preset Paket Jasa)
+
+**Fitur 1 — Top 5 Jasa Bulan Ini (Dashboard):**
+- `pages/Dashboard.jsx` — `useMemo topServices` aggregate `services_json` dari repairs `created_at` bulan berjalan, group by nama (case-insensitive), sort by count desc, ambil top 5.
+- Section baru "Produk Andalan / Top 5 Jasa Bulan Ini" dengan horizontal BarChart (dataKey=count, warna gradasi rank 1–5) + grid kartu ringkasan 5 kolom menampilkan #rank, nama, count, dan revenue.
+- Empty state saat belum ada order jasa bulan ini (icon Trophy + pesan onboarding).
+
+**Fitur 2 — Preset Paket Jasa (Bundel):**
+- Backend: tabel baru `service_packages` (id, name, description, items_json TEXT storing array of service_item_id). Endpoint `/api/service-packages/index.php` GET/POST/PUT/DELETE (admin mutasi only, viewer semua role). File migrasi `/app/php-backend/migrations/2026_02_service_packages.sql`. Seed 3 paket populer.
+- Frontend: `servicePackagesApi` (localStorage + mirror), `phpServicePackagesApi`, pull sync, seed `SEED_SERVICE_PACKAGES`.
+- `components/ServiceCatalogSection.jsx` — ekspor tambahan `<ServicePackageSection>` dan `<PackageModal>`. Grid 2-kolom kartu paket (chip jasa, jumlah, total). Modal buat/edit dengan checklist jasa dikelompokkan per kategori. Validasi min 1 jasa terpilih.
+- `pages/Settings.jsx` — mount `<ServicePackageSection />` setelah kategori section (admin only).
+- `components/ServicePicker.jsx` — tombol baru "Tambah Paket" (hanya muncul jika ada paket). Modal picker menampilkan setiap paket dengan chip jasa & total. `applyPackage()` expand paket menjadi row-row individual dengan flag `from_package` — user tetap bisa edit harga per baris atau hapus salah satunya. Badge "Paket XYZ" muncul di kolom Kategori row hasil paket.
+
+**Testing:** 100% frontend tests passed (20/20 assertions). Report: `/app/test_reports/iteration_14.json`.
+
+**Deploy:**
+1. VPS MySQL: `mysql -u USER -p DB < php-backend/migrations/2026_02_service_packages.sql`
+2. Push `php-backend/api/service-packages/` ke VPS
+3. `yarn build` di Mac → `rsync build/` ke VPS (tanpa `--delete`)
+
+
 ## Implemented (2026-02) — Iteration 17 (Fitur baru: Skema Harga & Kategori Jasa Servis)
 Fitur besar untuk memudahkan teknisi memilih jenis kerusakan umum saat buat tiket, dengan tetap boleh override harga per tiket.
 

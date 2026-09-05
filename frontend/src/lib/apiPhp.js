@@ -142,6 +142,14 @@ export const phpServiceItemsApi = {
   delete: async (id) => (await http.delete(`/api/service-items/index.php?id=${id}`)).data,
 };
 
+// ============ SERVICE PACKAGES ============
+export const phpServicePackagesApi = {
+  list:   async () => (await http.get('/api/service-packages/index.php')).data,
+  create: async (data) => (await http.post('/api/service-packages/index.php', data)).data,
+  update: async (id, data) => (await http.put(`/api/service-packages/index.php?id=${id}`, data)).data,
+  delete: async (id) => (await http.delete(`/api/service-packages/index.php?id=${id}`)).data,
+};
+
 // ============ SETTINGS ============
 export const phpSettingsApi = {
   get: async () => (await http.get('/api/settings/index.php')).data,
