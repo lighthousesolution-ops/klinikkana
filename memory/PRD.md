@@ -20,6 +20,14 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-02) — Iteration 19 (Bug fix: total tiket salah + decimal aneh)
+Akar masalah: MySQL `DECIMAL(12,2)` dikembalikan PDO sebagai **string** (mis. `"200000.00"`). Di `computeTotal`, ekspresi `(repair.service_fee || 0) + parts` melakukan **string concatenation** → `"200000.00" + 220000 = "200000.00220000"` → di-format `toLocaleString('id-ID')` = `"Rp 200.000,002"` (bukan `Rp 420.000`).
+
+- `/app/frontend/src/lib/store.js` — `computeTotal()`: paksa `Number()` pada `service_fee`, `p.qty`, `p.price`, `p.amount` sebelum arithmetic. Verifikasi Node: bug reproduce `"200000.00220000"` → fix `420000`.
+- `/app/frontend/src/lib/utils.js` — `formatIDR()` sekarang pakai `Math.round(Number(n))` agar Rupiah selalu bulat (safety net: kalau ada nilai float dari operasi hitung lain, tidak akan ada `,002` di UI).
+- Deploy: build ulang frontend + rsync `build/` ke VPS.
+
+
 ## Implemented (2026-02) — Iteration 18 (Laporan Jasa Terlaris + Preset Paket Jasa)
 
 **Fitur 1 — Top 5 Jasa Bulan Ini (Dashboard):**

@@ -788,10 +788,17 @@ export const repairsApi = {
 
 // Helper: compute totals with payments
 export function computeTotal(repair) {
-  const parts = (repair.parts_used || []).reduce((s, p) => s + p.qty * p.price, 0);
-  const total = (repair.service_fee || 0) + parts;
+  // MySQL DECIMAL columns come back as strings via PDO ("200000.00"), so every
+  // numeric field is coerced through Number() before arithmetic — otherwise
+  // `"200000.00" + 220000` string-concats to "200000.00220000" which displays
+  // as "Rp 200.000,002" in id-ID locale.
+  const parts = (repair.parts_used || []).reduce(
+    (s, p) => s + (Number(p.qty) || 0) * (Number(p.price) || 0),
+    0
+  );
+  const total = (Number(repair.service_fee) || 0) + parts;
   const deposit = Number(repair.deposit) || 0;
-  const paymentsTotal = (repair.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0);
+  const paymentsTotal = (repair.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
   const paid = deposit + paymentsTotal;
   const balance = total - paid;
   return { parts_total: parts, total, deposit, payments_total: paymentsTotal, paid, balance };

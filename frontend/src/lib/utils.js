@@ -7,7 +7,8 @@ export function cn(...inputs) {
 
 export function formatIDR(n) {
   if (n === null || n === undefined || isNaN(n)) return 'Rp 0';
-  return 'Rp ' + Number(n).toLocaleString('id-ID');
+  // Rupiah tidak punya satuan sen — bulatkan supaya tidak ada ",xxx" di UI.
+  return 'Rp ' + Math.round(Number(n)).toLocaleString('id-ID');
 }
 
 export function formatDate(iso) {
