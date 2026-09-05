@@ -6,7 +6,7 @@ import { repairsApi, customersApi, sparepartsApi, usersApi, settingsApi, compute
 import { STATUS_LABELS, STATUS_ORDER } from '@/lib/mockData';
 import { formatIDR, formatDateTime, formatDate, waLink, renderTemplate } from '@/lib/utils';
 import StatusBadge from '@/components/StatusBadge';
-import { ServiceList } from '@/components/ServicePicker';
+import { ServicePicker, ServiceList } from '@/components/ServicePicker';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function RepairDetailPage() {
@@ -29,6 +29,12 @@ export default function RepairDetailPage() {
     technician_id: repair?.technician_id || '',
     notes: repair?.notes || '',
   });
+  // services_json disimpan sebagai state terpisah supaya bisa diedit lewat
+  // ServicePicker; sinkron dengan editForm.service_fee saat save.
+  const [services, setServices] = useState(
+    Array.isArray(repair?.services_json) ? repair.services_json : []
+  );
+  const servicesTotal = services.reduce((s, r) => s + (Number(r.price) || 0), 0);
   const [selPart, setSelPart] = useState({ sparepart_id: '', qty: 1 });
   const [payForm, setPayForm] = useState({ amount: '', method: 'Tunai', note: '' });
 
@@ -76,11 +82,20 @@ export default function RepairDetailPage() {
   };
 
   const saveEdit = () => {
+    // Validate services rows same way as RepairNew
+    const invalidCustom = services.find((s) => s.is_custom && !s.name?.trim());
+    if (invalidCustom) return toast.error('Isi nama untuk semua jasa custom');
+    const invalidPreset = services.find((s) => !s.is_custom && !s.item_id);
+    if (invalidPreset) return toast.error('Pilih jasa untuk semua baris katalog');
     repairsApi.update(id, {
-      service_fee: Number(editForm.service_fee) || 0,
+      // If picker rows exist, service_fee is derived from the sum. Otherwise
+      // fall back to the manually-typed field (backward compat with tickets
+      // created before Iteration 17).
+      service_fee: services.length > 0 ? servicesTotal : (Number(editForm.service_fee) || 0),
       deposit: Number(editForm.deposit) || 0,
       technician_id: editForm.technician_id || null,
       notes: editForm.notes,
+      services_json: services,
     });
     toast.success('Detail servis disimpan');
     refresh();
@@ -251,8 +266,13 @@ export default function RepairDetailPage() {
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Biaya Jasa</label>
-                <input type="number" min={0} disabled={!canEditPrice} value={editForm.service_fee} onChange={(e) => setEditForm({ ...editForm, service_fee: e.target.value })}
+                <label className="text-sm font-medium mb-1.5 block">
+                  Biaya Jasa {services.length > 0 && <span className="text-xs text-muted-foreground font-normal">(auto dari daftar jasa)</span>}
+                </label>
+                <input type="number" min={0}
+                  disabled={!canEditPrice || services.length > 0}
+                  value={services.length > 0 ? servicesTotal : editForm.service_fee}
+                  onChange={(e) => setEditForm({ ...editForm, service_fee: e.target.value })}
                   data-testid="edit-service-fee"
                   className="w-full h-10 px-3 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono disabled:opacity-60" />
               </div>
@@ -278,17 +298,31 @@ export default function RepairDetailPage() {
             </div>
           </div>
 
-          {/* Services detail (from services_json) — read-only */}
-          {repair.services_json && repair.services_json.length > 0 && (
-            <div className="rounded-lg border border-border bg-card p-5" data-testid="services-section">
-              <div className="flex items-center gap-2 mb-4">
-                <ClipboardList className="h-4 w-4 text-primary" />
-                <div className="overline text-muted-foreground">Rincian Jasa Servis</div>
-              </div>
-              <ServiceList services={repair.services_json} />
-              <p className="text-xs text-muted-foreground mt-2">Total jasa sudah otomatis masuk ke Biaya Jasa di rincian biaya.</p>
+          {/* Services detail — editable ketika role boleh edit harga, else read-only */}
+          <div className="rounded-lg border border-border bg-card p-5" data-testid="services-section">
+            <div className="flex items-center gap-2 mb-4">
+              <ClipboardList className="h-4 w-4 text-primary" />
+              <div className="overline text-muted-foreground">Rincian Jasa Servis</div>
             </div>
-          )}
+            {canEditPrice ? (
+              <>
+                <ServicePicker value={services} onChange={setServices} />
+                <div className="mt-3 flex justify-end">
+                  <button onClick={saveEdit} data-testid="btn-save-services"
+                    className="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-semibold">
+                    <Save className="h-3.5 w-3.5" /> Simpan Jasa
+                  </button>
+                </div>
+              </>
+            ) : services.length > 0 ? (
+              <>
+                <ServiceList services={services} />
+                <p className="text-xs text-muted-foreground mt-2">Total jasa sudah otomatis masuk ke Biaya Jasa di rincian biaya.</p>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">Belum ada rincian jasa untuk tiket ini.</p>
+            )}
+          </div>
 
           {/* Spare parts used */}
           <div className="rounded-lg border border-border bg-card p-5" data-testid="parts-section">

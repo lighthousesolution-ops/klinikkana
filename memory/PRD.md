@@ -20,6 +20,19 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-02) — Iteration 20 (Bug fix: picker jasa tidak muncul saat edit tiket)
+Bug: Di halaman detail/edit tiket, section "Rincian Jasa Servis" hanya menampilkan `<ServiceList>` read-only. Teknisi/admin tidak bisa menambah/mengubah katalog jasa, paket, atau kustom pada tiket lama — hanya bisa di form tiket baru.
+
+- `/app/frontend/src/pages/RepairDetail.jsx`:
+  - Import `ServicePicker` selain `ServiceList`
+  - Tambah state `services` (init dari `repair.services_json`) + `servicesTotal` derived
+  - `saveEdit()` sekarang kirim `services_json` + validasi custom name & preset item_id (mirror pola RepairNew); `service_fee` auto-derived dari `servicesTotal` kalau picker punya isi
+  - Field "Biaya Jasa" di section Detail Servis auto-disable + tampilkan total saat picker terisi (konsisten dengan RepairNew)
+  - Section "Rincian Jasa Servis" sekarang render `<ServicePicker>` (editable) untuk role yang boleh edit price (admin/cashier). Non-editable role tetap dapat `<ServiceList>` read-only.
+  - Tombol "Simpan Jasa" khusus di section (selain "Simpan" utama Detail Servis) supaya user bisa save perubahan katalog langsung
+- Deploy: build ulang frontend saja (tidak ada perubahan PHP/schema).
+
+
 ## Implemented (2026-02) — Iteration 19 (Bug fix: total tiket salah + decimal aneh)
 Akar masalah: MySQL `DECIMAL(12,2)` dikembalikan PDO sebagai **string** (mis. `"200000.00"`). Di `computeTotal`, ekspresi `(repair.service_fee || 0) + parts` melakukan **string concatenation** → `"200000.00" + 220000 = "200000.00220000"` → di-format `toLocaleString('id-ID')` = `"Rp 200.000,002"` (bukan `Rp 420.000`).
 
