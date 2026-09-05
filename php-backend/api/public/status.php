@@ -47,6 +47,32 @@ $stmt = $pdo->prepare('SELECT s.name FROM repair_parts rp JOIN spareparts s ON s
 $stmt->execute([$r['id']]);
 $parts = array_column($stmt->fetchAll(), 'name');
 
+// Services (decode services_json from repair; expose only name + category
+// name — hide unit price so customer sees the total but not the breakdown).
+$services = [];
+if (!empty($r['services_json'])) {
+    $decoded = json_decode($r['services_json'], true);
+    if (is_array($decoded)) {
+        // Preload category names in one query
+        $catIds = array_values(array_unique(array_filter(array_column($decoded, 'category_id'))));
+        $catMap = [];
+        if ($catIds) {
+            $placeholders = implode(',', array_fill(0, count($catIds), '?'));
+            $stmt = $pdo->prepare("SELECT id, name FROM service_categories WHERE id IN ($placeholders)");
+            $stmt->execute($catIds);
+            foreach ($stmt->fetchAll() as $row) $catMap[$row['id']] = $row['name'];
+        }
+        foreach ($decoded as $s) {
+            $services[] = [
+                'name'          => $s['name'] ?? '',
+                'category_name' => isset($s['category_id']) ? ($catMap[$s['category_id']] ?? null) : null,
+                'is_custom'     => !empty($s['is_custom']),
+                'from_package'  => $s['from_package'] ?? null,
+            ];
+        }
+    }
+}
+
 // Payments total
 $stmt = $pdo->prepare('SELECT COALESCE(SUM(amount),0) AS s FROM payments WHERE repair_id=?');
 $stmt->execute([$r['id']]);
@@ -78,6 +104,7 @@ json_response([
     'completed_at' => $r['completed_at'],
     'picked_up_at' => $r['picked_up_at'],
     'parts_used'   => $parts,
+    'services'     => $services,
     'totals'       => [
         'total'   => $total,
         'paid'    => $paid,

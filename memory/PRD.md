@@ -20,6 +20,23 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-02) — Iteration 21 (Bug fix status change + jasa di public status link)
+
+**Bug fix: Services hilang saat pergantian status Pending→In Progress→Ready.**
+Root cause: `changeStatus` di store.js membaca `items[idx]` dari localStorage → kalau user tambah jasa via `ServicePicker` di RepairDetail TAPI belum klik "Simpan Jasa", state picker cuma di React component (belum flush ke localStorage). Pas advance status, changeStatus mengirim `items[idx]` lama (services_json kosong) ke PHP PUT → services_json di MySQL ter-clobber empty.
+- `/app/frontend/src/pages/RepairDetail.jsx` `updateStatus()` — sebelum panggil `repairsApi.changeStatus`, cek apakah state `services` beda dari `repair.services_json`. Kalau beda → auto-save dulu via `repairsApi.update` (dengan validasi custom name + preset item_id). Guard: kalau ada baris invalid, toast error minta user beresin dulu daripada melanjutkan status change dengan data yang belum lengkap.
+- Verifikasi screenshot: buat tiket dgn 3 jasa → advance ke In Progress → advance ke Ready → biaya jasa masih Rp 200.000 + section "Rincian Jasa Servis" persist ✅.
+
+**Fitur: Jasa/kategori tampil di public status link.**
+- `/app/php-backend/api/public/status.php` — decode `services_json` dari repair row, resolve `category_name` via join `service_categories`, return field baru `services[]` `{name, category_name, is_custom, from_package}` (tanpa harga per baris — hanya total).
+- `/app/backend/server.py` `PublicRepairSnapshot` — tambah field `services: Optional[list]` supaya Pydantic tidak drop.
+- `/app/frontend/src/lib/publicSync.js` — `buildSnapshot()` bangun daftar services (nama + category_name via `serviceCategoriesApi`); `normalizePhpPublicStatus()` juga passthrough field services.
+- `/app/frontend/src/pages/PublicStatus.jsx` — memo `repair` include `services` dari serverData (dengan fallback ke `localRepair.services_json`). Section baru "Jasa yang Dikerjakan" di Detail Perbaikan render chips warna-warni: biru primary utk item dari paket, amber utk custom, netral utk katalog biasa. Format chip: "Kategori · Nama Jasa (Nama Paket)".
+- Verifikasi screenshot: 3 chip muncul di halaman publik dengan kategori & nama paket masing-masing ✅.
+
+**Deploy:** PHP: `rsync php-backend/api/public/status.php ...`. Frontend: build + rsync build/.
+
+
 ## Implemented (2026-02) — Iteration 20 (Bug fix: picker jasa tidak muncul saat edit tiket)
 Bug: Di halaman detail/edit tiket, section "Rincian Jasa Servis" hanya menampilkan `<ServiceList>` read-only. Teknisi/admin tidak bisa menambah/mengubah katalog jasa, paket, atau kustom pada tiket lama — hanya bisa di form tiket baru.
 

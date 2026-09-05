@@ -100,6 +100,7 @@ class PublicRepairSnapshot(BaseModel):
     admin_reply: Optional[str] = None
     admin_reply_by_name: Optional[str] = None
     admin_reply_at: Optional[str] = None
+    services: Optional[list] = None
     shop: Optional[dict] = None
     updated_at: Optional[str] = None
 

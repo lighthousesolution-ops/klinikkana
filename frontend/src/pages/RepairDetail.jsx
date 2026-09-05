@@ -72,6 +72,19 @@ export default function RepairDetailPage() {
   const canEditPrice = hasRole('admin', 'cashier');
 
   const updateStatus = (status) => {
+    // Auto-save any unsaved picker changes so status transitions never
+    // clobber services_json with a stale value from localStorage.
+    if (JSON.stringify(services) !== JSON.stringify(repair?.services_json || [])) {
+      const invalidCustom = services.find((s) => s.is_custom && !s.name?.trim());
+      const invalidPreset = services.find((s) => !s.is_custom && !s.item_id);
+      if (invalidCustom || invalidPreset) {
+        return toast.error('Simpan daftar jasa dulu (ada baris belum lengkap) sebelum ubah status.');
+      }
+      repairsApi.update(id, {
+        service_fee: services.length > 0 ? servicesTotal : (Number(editForm.service_fee) || 0),
+        services_json: services,
+      });
+    }
     const updated = repairsApi.changeStatus(id, status);
     if (!updated || updated.status !== status) {
       toast.error('Gagal mengubah status. Silakan coba lagi.');

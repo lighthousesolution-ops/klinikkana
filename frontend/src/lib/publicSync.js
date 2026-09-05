@@ -10,7 +10,7 @@
  * sync" push is needed here.
  */
 import axios from 'axios';
-import { customersApi, usersApi, settingsApi, computeTotal } from '@/lib/store';
+import { customersApi, usersApi, settingsApi, computeTotal, serviceCategoriesApi } from '@/lib/store';
 import { IS_PHP } from './dataMode';
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
@@ -26,6 +26,14 @@ function buildSnapshot(repair) {
   const replyUser = repair.admin_reply_by ? users.find((u) => u.id === repair.admin_reply_by) : null;
   const settings = settingsApi.get();
   const totals = computeTotal(repair);
+  // Build public-safe services list (no unit price, only names + category)
+  const catMap = Object.fromEntries(serviceCategoriesApi.list().map((c) => [c.id, c.name]));
+  const services = (Array.isArray(repair.services_json) ? repair.services_json : []).map((s) => ({
+    name: s.name || '',
+    category_name: s.category_id ? (catMap[s.category_id] || null) : null,
+    is_custom: !!s.is_custom,
+    from_package: s.from_package || null,
+  }));
   return {
     ticket_no: repair.ticket_no,
     status: repair.status,
@@ -48,6 +56,7 @@ function buildSnapshot(repair) {
     admin_reply: repair.admin_reply || null,
     admin_reply_by_name: replyUser?.full_name || null,
     admin_reply_at: repair.admin_reply_at || null,
+    services,
     shop: {
       name: settings.shop_name,
       tagline: settings.shop_tagline,
@@ -85,6 +94,7 @@ function normalizePhpPublicStatus(d) {
     admin_reply_by_name: null,
     admin_reply_at: d.admin_reply_at || null,
     parts_used: d.parts_used || [],
+    services: Array.isArray(d.services) ? d.services : [],
   };
 }
 

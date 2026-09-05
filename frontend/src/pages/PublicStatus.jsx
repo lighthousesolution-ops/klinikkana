@@ -126,7 +126,21 @@ export default function PublicStatusPage() {
         admin_reply: serverData.admin_reply,
         admin_reply_by_name: serverData.admin_reply_by_name,
         admin_reply_at: serverData.admin_reply_at,
+        // Services list (nama + kategori, tanpa harga per baris).
+        // Prefer server-provided array; fall back to local services_json for
+        // same-device admin preview before the first sync completes.
+        services: Array.isArray(serverData.services) && serverData.services.length > 0
+          ? serverData.services
+          : (Array.isArray(localRepair?.services_json) ? localRepair.services_json : []),
         __fromServer: true,
+      };
+    }
+    // Same-device admin preview / offline fallback — reuse services_json
+    // directly so the "Jasa Dikerjakan" chips work even without a server sync.
+    if (localRepair) {
+      return {
+        ...localRepair,
+        services: Array.isArray(localRepair.services_json) ? localRepair.services_json : [],
       };
     }
     return localRepair;
@@ -305,6 +319,28 @@ export default function PublicStatusPage() {
             <div className="text-xs font-semibold text-muted-foreground mb-1">Keluhan</div>
             <div className="text-sm">{repair.complaint}</div>
           </div>
+
+          {Array.isArray(repair.services) && repair.services.length > 0 && (
+            <div className="pt-3 border-t border-border" data-testid="public-services">
+              <div className="text-xs font-semibold text-muted-foreground mb-2">Jasa yang Dikerjakan</div>
+              <div className="flex flex-wrap gap-1.5">
+                {repair.services.map((s, i) => (
+                  <span key={i} data-testid={`public-service-${i}`}
+                    className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border ${
+                      s.is_custom
+                        ? 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30'
+                        : s.from_package
+                          ? 'bg-primary/10 text-primary border-primary/20'
+                          : 'bg-accent border-border'
+                    }`}>
+                    {s.category_name && <span className="text-[10px] opacity-70">{s.category_name} ·</span>}
+                    <span className="font-medium">{s.name}</span>
+                    {s.from_package && <span className="text-[9px] opacity-70">({s.from_package})</span>}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Billing */}
