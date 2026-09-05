@@ -5,6 +5,7 @@ import { settingsApi, preferencesApi } from '@/lib/store';
 import { useAuth } from '@/contexts/AuthContext';
 import { IS_PHP } from '@/lib/dataMode';
 import { pullAllFromServer } from '@/lib/pullFromServer';
+import ServiceCatalogSection from '@/components/ServiceCatalogSection';
 
 const PLACEHOLDER_LIST = [
   { key: '{customer_name}', desc: 'Nama pelanggan' },
@@ -175,6 +176,9 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Service Catalog (Kategori & Jasa Servis) */}
+      {user?.role === 'admin' && <ServiceCatalogSection />}
 
       {/* Invoice/Nota */}
       <div className="rounded-lg border border-border bg-card p-6" data-testid="section-invoice">

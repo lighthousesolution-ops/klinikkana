@@ -18,6 +18,8 @@ DROP TABLE IF EXISTS `payments`;
 DROP TABLE IF EXISTS `repair_parts`;
 DROP TABLE IF EXISTS `repairs`;
 DROP TABLE IF EXISTS `spareparts`;
+DROP TABLE IF EXISTS `service_items`;
+DROP TABLE IF EXISTS `service_categories`;
 DROP TABLE IF EXISTS `customers`;
 DROP TABLE IF EXISTS `users`;
 DROP TABLE IF EXISTS `branches`;
@@ -89,6 +91,31 @@ CREATE TABLE `spareparts` (
     ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Service Categories (Kategori jasa servis — global, tidak per cabang)
+CREATE TABLE `service_categories` (
+  `id` VARCHAR(64) NOT NULL,
+  `name` VARCHAR(120) NOT NULL,
+  `icon` VARCHAR(60) DEFAULT NULL,
+  `sort_order` INT NOT NULL DEFAULT 0,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Service Items (Daftar jasa/layanan di bawah kategori — harga acuan)
+CREATE TABLE `service_items` (
+  `id` VARCHAR(64) NOT NULL,
+  `category_id` VARCHAR(64) NOT NULL,
+  `name` VARCHAR(150) NOT NULL,
+  `default_price` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `duration_minutes` INT DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_service_category` (`category_id`),
+  CONSTRAINT `fk_service_category`
+    FOREIGN KEY (`category_id`) REFERENCES `service_categories`(`id`)
+    ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Repairs (Servis)
 CREATE TABLE `repairs` (
   `id` VARCHAR(64) NOT NULL,
@@ -114,6 +141,7 @@ CREATE TABLE `repairs` (
   `admin_reply` TEXT DEFAULT NULL,
   `admin_reply_by` VARCHAR(64) DEFAULT NULL,
   `admin_reply_at` DATETIME DEFAULT NULL,
+  `services_json` TEXT DEFAULT NULL,
   PRIMARY KEY (`id`),
   INDEX `idx_status` (`status`),
   INDEX `idx_customer` (`customer_id`),
@@ -209,6 +237,43 @@ INSERT INTO `spareparts` (`id`,`name`,`sku`,`category`,`stock`,`cost_price`,`sel
 ('sp6','Speaker Oppo A5s',             'SPK-OA5S',   'Speaker',   1,   45000,  120000, 3),
 ('sp7','Tempered Glass Universal 6.5', 'TG-65',      'Aksesoris', 40,   8000,   35000, 15),
 ('sp8','Kabel Fleksibel Power iPhone X','FLX-IPX',   'Fleksibel', 4,   60000,  175000, 3);
+
+-- Master data kategori & jasa servis (global, semua cabang share katalog yang sama)
+INSERT INTO `service_categories` (`id`,`name`,`icon`,`sort_order`) VALUES
+('sc_layar',     'Layar / LCD',        'monitor-smartphone', 1),
+('sc_baterai',   'Baterai',            'battery-charging',    2),
+('sc_charging',  'Port Charging',      'plug',                3),
+('sc_ic',        'IC / Motherboard',   'cpu',                 4),
+('sc_software',  'Software',           'smartphone',          5),
+('sc_speaker',   'Speaker / Mic',      'volume-2',            6),
+('sc_air',       'Kerusakan Air',      'droplets',            7);
+
+INSERT INTO `service_items` (`id`,`category_id`,`name`,`default_price`,`duration_minutes`) VALUES
+-- Layar / LCD
+('si_lcd_ori',    'sc_layar',    'Ganti LCD Original',              850000, 60),
+('si_lcd_copy',   'sc_layar',    'Ganti LCD Copy / Aftermarket',    450000, 60),
+('si_tg',         'sc_layar',    'Pasang Tempered Glass',            50000, 15),
+-- Baterai
+('si_bat_std',    'sc_baterai',  'Ganti Baterai Standar',           250000, 30),
+('si_bat_high',   'sc_baterai',  'Ganti Baterai High Capacity',     400000, 45),
+-- Port Charging
+('si_port_std',   'sc_charging', 'Ganti Konektor Charger',          150000, 45),
+('si_port_clean', 'sc_charging', 'Bersih Port Charger',              50000, 20),
+-- IC / Motherboard
+('si_ic_power',   'sc_ic',       'Reball IC Power',                 350000, 180),
+('si_ic_signal',  'sc_ic',       'Reball IC Sinyal',                400000, 180),
+('si_ic_wifi',    'sc_ic',       'Reball IC WiFi',                  350000, 180),
+-- Software
+('si_flash',      'sc_software', 'Flash Ulang / Reinstall OS',      150000, 90),
+('si_bypass',     'sc_software', 'Bypass iCloud / FRP',             500000, 120),
+('si_unlock',     'sc_software', 'Unlock Pola / Sandi',             100000, 45),
+-- Speaker / Mic
+('si_speaker',    'sc_speaker',  'Ganti Speaker',                   120000, 45),
+('si_mic',        'sc_speaker',  'Ganti Mikrofon',                  100000, 45),
+('si_speaker_ear','sc_speaker',  'Ganti Earpiece / Speaker Telinga', 100000, 45),
+-- Kerusakan Air
+('si_air_service','sc_air',      'Service Kena Air (Ultrasonic Cleaning)', 200000, 120),
+('si_air_check',  'sc_air',      'Cek Kerusakan Akibat Air',         50000, 30);
 
 INSERT INTO `repairs`
 (`id`,`ticket_no`,`customer_id`,`device_brand`,`device_model`,`serial_no`,`complaint`,`notes`,`status`,`technician_id`,`service_fee`,`deposit`,`created_at`,`completed_at`,`picked_up_at`) VALUES

@@ -6,6 +6,7 @@ import { repairsApi, customersApi, sparepartsApi, usersApi, settingsApi, compute
 import { STATUS_LABELS, STATUS_ORDER } from '@/lib/mockData';
 import { formatIDR, formatDateTime, formatDate, waLink, renderTemplate } from '@/lib/utils';
 import StatusBadge from '@/components/StatusBadge';
+import { ServiceList } from '@/components/ServicePicker';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function RepairDetailPage() {
@@ -276,6 +277,18 @@ export default function RepairDetailPage() {
               </button>
             </div>
           </div>
+
+          {/* Services detail (from services_json) — read-only */}
+          {repair.services_json && repair.services_json.length > 0 && (
+            <div className="rounded-lg border border-border bg-card p-5" data-testid="services-section">
+              <div className="flex items-center gap-2 mb-4">
+                <ClipboardList className="h-4 w-4 text-primary" />
+                <div className="overline text-muted-foreground">Rincian Jasa Servis</div>
+              </div>
+              <ServiceList services={repair.services_json} />
+              <p className="text-xs text-muted-foreground mt-2">Total jasa sudah otomatis masuk ke Biaya Jasa di rincian biaya.</p>
+            </div>
+          )}
 
           {/* Spare parts used */}
           <div className="rounded-lg border border-border bg-card p-5" data-testid="parts-section">

@@ -20,6 +20,38 @@ Create a comprehensive Mobile Phone Repair Management Web Application (Aplikasi 
 2. **Teknisi** - Hanya lihat tugas servis, update status, gunakan sparepart.
 3. **Kasir** - Melihat pelanggan & billing, buat tiket, kelola pembayaran.
 
+## Implemented (2026-02) — Iteration 17 (Fitur baru: Skema Harga & Kategori Jasa Servis)
+Fitur besar untuk memudahkan teknisi memilih jenis kerusakan umum saat buat tiket, dengan tetap boleh override harga per tiket.
+
+**Backend (PHP + MySQL):**
+- Tabel baru `service_categories` (id, name, icon, sort_order) dan `service_items` (id, category_id FK CASCADE, name, default_price, duration_minutes).
+- Kolom baru `repairs.services_json` TEXT — menyimpan array {id, category_id, item_id, name, price, is_custom} per tiket.
+- Endpoint PHP baru: `/api/service-categories/index.php` dan `/api/service-items/index.php` (GET/POST/PUT/DELETE, admin only untuk mutasi).
+- `/api/repairs/index.php` — POST & PUT sekarang terima `services_json` (array atau string), GET auto-decode ke array untuk frontend.
+- File migrasi `/app/php-backend/migrations/2026_02_service_catalog.sql` untuk user yang sudah punya DB lama (idempotent CREATE + ALTER + INSERT seed).
+- Seed data: 7 kategori (Layar/LCD, Baterai, Port Charging, IC/Motherboard, Software, Speaker/Mic, Kerusakan Air) + 18 jasa preset (harga acuan Rp 50k–850k).
+
+**Frontend (React):**
+- `mockData.js` — SEED_SERVICE_CATEGORIES & SEED_SERVICE_ITEMS.
+- `store.js` — `serviceCategoriesApi` + `serviceItemsApi` (CRUD via localStorage + write-through phpMirror). Delete kategori cascade delete item lokal.
+- `apiPhp.js` — `phpServiceCategoriesApi` + `phpServiceItemsApi`.
+- `pullFromServer.js` — fetch kategori & item saat login/mount/sync (normalisasi Number untuk default_price & duration_minutes).
+- `phpMirror.js` — `serviceCategory.upsert/remove` & `serviceItem.upsert/remove`.
+- **`components/ServicePicker.jsx`** — komponen multi-row: Kategori dropdown → Jasa dropdown → Harga (auto-fill dari default_price, editable) → Trash. Tombol "Tambah dari Katalog" + "Tambah Jasa Custom" (badge Custom, nama & harga bebas). Total auto-sum di footer tabel. Ekspor `<ServiceList>` untuk read-only summary.
+- **`components/ServiceCatalogSection.jsx`** — Master data CRUD di halaman Konfigurasi (admin only). Kategori collapsible, tombol tambah/edit/hapus untuk kategori & jasa.
+- `pages/RepairNew.jsx` — mount `<ServicePicker>`; jika picker berisi ≥1 row, field "Estimasi Biaya Jasa" auto-disabled dan menampilkan total. `services_json` tersimpan bareng tiket.
+- `pages/RepairDetail.jsx` — section baru "Rincian Jasa Servis" (read-only) muncul kalau tiket punya `services_json`.
+- `pages/Invoice.jsx` — A4 & thermal keduanya render per-line jasa dari `services_json`; fallback ke 1 baris `service_fee` klasik kalau tidak ada.
+- `pages/Settings.jsx` — mount `<ServiceCatalogSection />` hanya untuk admin, di atas section Teks Nota.
+
+**Testing:** 100% frontend tests passed (27/27 assertions) — CRUD katalog, alur end-to-end pilih jasa katalog + custom + edit harga, sum total, invoice per-line, teknisi role hidden dari master data. Report: `/app/test_reports/iteration_13.json`.
+
+**Deploy:**
+1. VPS MySQL: jalankan `/app/php-backend/migrations/2026_02_service_catalog.sql` via SSH/phpMyAdmin.
+2. VPS PHP: `rsync` folder `php-backend/api/service-categories/`, `php-backend/api/service-items/`, dan file `php-backend/api/repairs/index.php`.
+3. Frontend: `yarn build` di Mac → `rsync build/` ke VPS (JANGAN pakai `--delete`).
+
+
 ## Implemented (2026-02) — Iteration 16 (Bug fix: branch_id tiket baru selalu br1)
 - **`/app/frontend/src/lib/store.js`** — Tambah helper `resolveBranchIdForNew(dataBranchId)` yang mengembalikan branch berdasarkan prioritas: `data.branch_id` eksplisit → (non-admin) `user.branch_id` → (admin) pilihan BranchSelector aktif → `user.branch_id` admin → `is_default`.
 - **`repairsApi.create`** — Pakai helper (bukan lagi baca customer.branch_id yang sering null → jatuh ke `is_default`/br1). Customer.branch_id sekarang hanya jadi last-ditch fallback.

@@ -189,12 +189,26 @@ function InvoiceA4({ repair, customer, spMap, technician, settings, totals, qrVa
           </tr>
         </thead>
         <tbody>
-          <tr className="border-b border-neutral-200">
-            <td className="py-2.5">Jasa Servis — {repair.device_brand} {repair.device_model}</td>
-            <td className="py-2.5 text-right font-mono">1</td>
-            <td className="py-2.5 text-right font-mono">{formatIDR(repair.service_fee)}</td>
-            <td className="py-2.5 text-right font-mono font-semibold">{formatIDR(repair.service_fee)}</td>
-          </tr>
+          {(repair.services_json && repair.services_json.length > 0) ? (
+            repair.services_json.map((s, i) => (
+              <tr key={`svc-${i}`} className="border-b border-neutral-200">
+                <td className="py-2.5">
+                  {s.name || 'Jasa'} {s.is_custom && <span className="text-[10px] uppercase text-neutral-500">(Custom)</span>}
+                  <span className="block text-xs text-neutral-500">Jasa Servis — {repair.device_brand} {repair.device_model}</span>
+                </td>
+                <td className="py-2.5 text-right font-mono">1</td>
+                <td className="py-2.5 text-right font-mono">{formatIDR(Number(s.price) || 0)}</td>
+                <td className="py-2.5 text-right font-mono font-semibold">{formatIDR(Number(s.price) || 0)}</td>
+              </tr>
+            ))
+          ) : (
+            <tr className="border-b border-neutral-200">
+              <td className="py-2.5">Jasa Servis — {repair.device_brand} {repair.device_model}</td>
+              <td className="py-2.5 text-right font-mono">1</td>
+              <td className="py-2.5 text-right font-mono">{formatIDR(repair.service_fee)}</td>
+              <td className="py-2.5 text-right font-mono font-semibold">{formatIDR(repair.service_fee)}</td>
+            </tr>
+          )}
           {(repair.parts_used || []).map((p, i) => (
             <tr key={i} className="border-b border-neutral-200">
               <td className="py-2.5">{spMap[p.sparepart_id]?.name || 'Sparepart'} <span className="text-xs text-neutral-500 font-mono">({spMap[p.sparepart_id]?.sku || '-'})</span></td>
@@ -338,10 +352,19 @@ function InvoiceThermal({ repair, customer, spMap, technician, settings, totals,
 
       {/* Items */}
       <div className="border-t border-dashed border-black pt-2" style={{ fontSize: fs.small }}>
-        <div className="flex justify-between" style={{ fontWeight: 700 }}>
-          <span>Jasa Servis</span>
-          <span>{formatIDR(repair.service_fee)}</span>
-        </div>
+        {(repair.services_json && repair.services_json.length > 0) ? (
+          repair.services_json.map((s, i) => (
+            <div key={`svc-${i}`} className="flex justify-between" style={{ marginBottom: '2px' }}>
+              <span style={{ maxWidth: '70%' }}>{s.name || 'Jasa'}</span>
+              <span>{formatIDR(Number(s.price) || 0)}</span>
+            </div>
+          ))
+        ) : (
+          <div className="flex justify-between" style={{ fontWeight: 700 }}>
+            <span>Jasa Servis</span>
+            <span>{formatIDR(repair.service_fee)}</span>
+          </div>
+        )}
         {(repair.parts_used || []).map((p, i) => (
           <div key={i} style={{ marginTop: '2px' }}>
             <div style={{ fontWeight: 500 }}>{spMap[p.sparepart_id]?.name || 'Sparepart'}</div>

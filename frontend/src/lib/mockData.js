@@ -6,6 +6,38 @@ export const SEED_BRANCHES = [
   { id: 'br2', code: 'BDG',  name: 'Cabang Bandung', address: 'Jl. Asia Afrika No. 88, Bandung',  phone: '022-7654321',   is_default: false, created_at: '2025-01-05T09:00:00Z' },
 ];
 
+export const SEED_SERVICE_CATEGORIES = [
+  { id: 'sc_layar',    name: 'Layar / LCD',      icon: 'monitor-smartphone', sort_order: 1 },
+  { id: 'sc_baterai',  name: 'Baterai',          icon: 'battery-charging',   sort_order: 2 },
+  { id: 'sc_charging', name: 'Port Charging',    icon: 'plug',               sort_order: 3 },
+  { id: 'sc_ic',       name: 'IC / Motherboard', icon: 'cpu',                sort_order: 4 },
+  { id: 'sc_software', name: 'Software',         icon: 'smartphone',         sort_order: 5 },
+  { id: 'sc_speaker',  name: 'Speaker / Mic',    icon: 'volume-2',           sort_order: 6 },
+  { id: 'sc_air',      name: 'Kerusakan Air',    icon: 'droplets',           sort_order: 7 },
+];
+
+export const SEED_SERVICE_ITEMS = [
+  { id: 'si_lcd_ori',    category_id: 'sc_layar',    name: 'Ganti LCD Original',              default_price: 850000, duration_minutes: 60 },
+  { id: 'si_lcd_copy',   category_id: 'sc_layar',    name: 'Ganti LCD Copy / Aftermarket',    default_price: 450000, duration_minutes: 60 },
+  { id: 'si_tg',         category_id: 'sc_layar',    name: 'Pasang Tempered Glass',           default_price:  50000, duration_minutes: 15 },
+  { id: 'si_bat_std',    category_id: 'sc_baterai',  name: 'Ganti Baterai Standar',           default_price: 250000, duration_minutes: 30 },
+  { id: 'si_bat_high',   category_id: 'sc_baterai',  name: 'Ganti Baterai High Capacity',     default_price: 400000, duration_minutes: 45 },
+  { id: 'si_port_std',   category_id: 'sc_charging', name: 'Ganti Konektor Charger',          default_price: 150000, duration_minutes: 45 },
+  { id: 'si_port_clean', category_id: 'sc_charging', name: 'Bersih Port Charger',             default_price:  50000, duration_minutes: 20 },
+  { id: 'si_ic_power',   category_id: 'sc_ic',       name: 'Reball IC Power',                 default_price: 350000, duration_minutes: 180 },
+  { id: 'si_ic_signal',  category_id: 'sc_ic',       name: 'Reball IC Sinyal',                default_price: 400000, duration_minutes: 180 },
+  { id: 'si_ic_wifi',    category_id: 'sc_ic',       name: 'Reball IC WiFi',                  default_price: 350000, duration_minutes: 180 },
+  { id: 'si_flash',      category_id: 'sc_software', name: 'Flash Ulang / Reinstall OS',      default_price: 150000, duration_minutes: 90 },
+  { id: 'si_bypass',     category_id: 'sc_software', name: 'Bypass iCloud / FRP',             default_price: 500000, duration_minutes: 120 },
+  { id: 'si_unlock',     category_id: 'sc_software', name: 'Unlock Pola / Sandi',             default_price: 100000, duration_minutes: 45 },
+  { id: 'si_speaker',    category_id: 'sc_speaker',  name: 'Ganti Speaker',                   default_price: 120000, duration_minutes: 45 },
+  { id: 'si_mic',        category_id: 'sc_speaker',  name: 'Ganti Mikrofon',                  default_price: 100000, duration_minutes: 45 },
+  { id: 'si_speaker_ear',category_id: 'sc_speaker',  name: 'Ganti Earpiece',                  default_price: 100000, duration_minutes: 45 },
+  { id: 'si_air_service',category_id: 'sc_air',      name: 'Service Kena Air (Ultrasonic)',   default_price: 200000, duration_minutes: 120 },
+  { id: 'si_air_check',  category_id: 'sc_air',      name: 'Cek Kerusakan Akibat Air',        default_price:  50000, duration_minutes: 30 },
+];
+
+
 export const SEED_USERS = [
   { id: 'u1', username: 'admin', password: 'admin123', full_name: 'Andi Wijaya', role: 'admin', phone: '081234567890', branch_id: null,  created_at: '2025-01-05T09:00:00Z' },
   { id: 'u2', username: 'teknisi',  password: 'teknisi123', full_name: 'Budi Santoso', role: 'technician', phone: '081298765432', branch_id: 'br1', created_at: '2025-01-05T09:00:00Z' },

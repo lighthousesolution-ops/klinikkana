@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { customersApi, repairsApi } from '@/lib/store';
+import { ServicePicker } from '@/components/ServicePicker';
 
 const BRANDS = ['iPhone', 'Samsung', 'Xiaomi', 'Oppo', 'Vivo', 'Realme', 'Huawei', 'Asus', 'Nokia', 'Lainnya'];
 
@@ -20,16 +21,31 @@ export default function RepairNew() {
     deposit: 0,
     service_fee: 0,
   });
+  const [services, setServices] = useState([]);
+
+  // Derived: total service fee from picker rows. Kept in sync with the form
+  // field so the legacy `service_fee` column still holds the correct sum.
+  const totalServiceFee = services.reduce((sum, r) => sum + (Number(r.price) || 0), 0);
 
   const submit = (e) => {
     e.preventDefault();
     if (!form.customer_id) return toast.error('Pilih pelanggan terlebih dahulu');
     if (!form.device_model.trim()) return toast.error('Model perangkat wajib diisi');
     if (!form.complaint.trim()) return toast.error('Keluhan wajib diisi');
+    // If technician chose services, ensure every row has a name (custom rows
+    // may still be empty when just added).
+    const invalidCustom = services.find((s) => s.is_custom && !s.name?.trim());
+    if (invalidCustom) return toast.error('Isi nama untuk semua jasa custom');
+    const invalidPreset = services.find((s) => !s.is_custom && !s.item_id);
+    if (invalidPreset) return toast.error('Pilih jasa untuk semua baris katalog');
+
     const r = repairsApi.create({
       ...form,
       deposit: Number(form.deposit) || 0,
-      service_fee: Number(form.service_fee) || 0,
+      // service_fee = manual override if user didn't add services, else the
+      // sum of picker rows. Picker takes precedence when non-empty.
+      service_fee: services.length > 0 ? totalServiceFee : (Number(form.service_fee) || 0),
+      services_json: services,
     });
     toast.success(`Tiket ${r.ticket_no} dibuat`);
     navigate(`/repairs/${r.id}`);
@@ -88,10 +104,19 @@ export default function RepairNew() {
               className="w-full h-10 px-3 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono" />
           </div>
           <div>
-            <label className="text-sm font-medium mb-1.5 block">Estimasi Biaya Jasa</label>
-            <input type="number" min={0} data-testid="repair-service-fee" value={form.service_fee} onChange={(e) => setForm({ ...form, service_fee: e.target.value })}
-              className="w-full h-10 px-3 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono" />
+            <label className="text-sm font-medium mb-1.5 block">
+              Estimasi Biaya Jasa {services.length > 0 && <span className="text-xs text-muted-foreground font-normal">(auto dari daftar jasa di bawah)</span>}
+            </label>
+            <input type="number" min={0} data-testid="repair-service-fee"
+              value={services.length > 0 ? totalServiceFee : form.service_fee}
+              onChange={(e) => setForm({ ...form, service_fee: e.target.value })}
+              disabled={services.length > 0}
+              className="w-full h-10 px-3 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono disabled:opacity-70" />
           </div>
+        </div>
+
+        <div className="pt-4 border-t border-border">
+          <ServicePicker value={services} onChange={setServices} />
         </div>
 
         <div className="flex justify-end gap-2 pt-2 border-t border-border">

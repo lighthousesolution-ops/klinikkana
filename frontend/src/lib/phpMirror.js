@@ -108,6 +108,20 @@ export const phpMirror = {
     remove: (id) => fire('delete', `/api/branches/index.php?id=${encodeURIComponent(id)}`),
   },
 
+  serviceCategory: {
+    upsert: (c) => (c.__isNew || !c.id)
+      ? fire('post', '/api/service-categories/index.php', c)
+      : fire('put', `/api/service-categories/index.php?id=${encodeURIComponent(c.id)}`, c),
+    remove: (id) => fire('delete', `/api/service-categories/index.php?id=${encodeURIComponent(id)}`),
+  },
+
+  serviceItem: {
+    upsert: (s) => (s.__isNew || !s.id)
+      ? fire('post', '/api/service-items/index.php', s)
+      : fire('put', `/api/service-items/index.php?id=${encodeURIComponent(s.id)}`, s),
+    remove: (id) => fire('delete', `/api/service-items/index.php?id=${encodeURIComponent(id)}`),
+  },
+
   settings: {
     update: (patch) => fire('put', '/api/settings/index.php', patch),
   },

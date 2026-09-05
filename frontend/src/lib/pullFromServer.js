@@ -21,6 +21,8 @@ import {
   phpUsersApi,
   phpSettingsApi,
   phpBranchesApi,
+  phpServiceCategoriesApi,
+  phpServiceItemsApi,
 } from './apiPhp';
 
 const KEYS = {
@@ -30,6 +32,8 @@ const KEYS = {
   repairs: 'kk_repairs',
   settings: 'kk_settings',
   branches: 'kk_branches',
+  serviceCategories: 'kk_service_categories',
+  serviceItems: 'kk_service_items',
 };
 
 function write(key, value) {
@@ -56,9 +60,11 @@ export async function pullAllFromServer() {
     phpRepairsApi.list(),
     phpSettingsApi.get(),
     phpBranchesApi.list(),
+    phpServiceCategoriesApi.list(),
+    phpServiceItemsApi.list(),
   ]);
 
-  const [users, customers, spareparts, repairs, settings, branches] = results;
+  const [users, customers, spareparts, repairs, settings, branches, serviceCategories, serviceItems] = results;
   const errors = [];
 
   if (users.status === 'fulfilled')       write(KEYS.users, users.value);
@@ -81,6 +87,19 @@ export async function pullAllFromServer() {
     const list = (branches.value || []).map((b) => ({ ...b, is_default: !!Number(b.is_default) }));
     write(KEYS.branches, list);
   } else errors.push(`branches: ${branches.reason?.message || 'failed'}`);
+
+  if (serviceCategories.status === 'fulfilled') write(KEYS.serviceCategories, serviceCategories.value || []);
+  else errors.push(`service_categories: ${serviceCategories.reason?.message || 'failed'}`);
+
+  if (serviceItems.status === 'fulfilled') {
+    // Normalise numeric fields — MySQL DECIMAL returns strings via PDO
+    const list = (serviceItems.value || []).map((s) => ({
+      ...s,
+      default_price: Number(s.default_price) || 0,
+      duration_minutes: s.duration_minutes ? Number(s.duration_minutes) : null,
+    }));
+    write(KEYS.serviceItems, list);
+  } else errors.push(`service_items: ${serviceItems.reason?.message || 'failed'}`);
 
   const ok = errors.length === 0;
   if (!ok) {

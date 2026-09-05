@@ -125,6 +125,23 @@ export const phpBranchesApi = {
   delete: async (id) => (await http.delete(`/api/branches/index.php?id=${id}`)).data,
 };
 
+// ============ SERVICE CATEGORIES ============
+export const phpServiceCategoriesApi = {
+  list:   async () => (await http.get('/api/service-categories/index.php')).data,
+  create: async (data) => (await http.post('/api/service-categories/index.php', data)).data,
+  update: async (id, data) => (await http.put(`/api/service-categories/index.php?id=${id}`, data)).data,
+  delete: async (id) => (await http.delete(`/api/service-categories/index.php?id=${id}`)).data,
+};
+
+// ============ SERVICE ITEMS ============
+export const phpServiceItemsApi = {
+  list:   async () => (await http.get('/api/service-items/index.php')).data,
+  byCategory: async (category_id) => (await http.get(`/api/service-items/index.php?category_id=${category_id}`)).data,
+  create: async (data) => (await http.post('/api/service-items/index.php', data)).data,
+  update: async (id, data) => (await http.put(`/api/service-items/index.php?id=${id}`, data)).data,
+  delete: async (id) => (await http.delete(`/api/service-items/index.php?id=${id}`)).data,
+};
+
 // ============ SETTINGS ============
 export const phpSettingsApi = {
   get: async () => (await http.get('/api/settings/index.php')).data,

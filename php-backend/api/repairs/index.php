@@ -16,6 +16,15 @@ function attach_parts(array &$repair): void {
     $stmt = db()->prepare('SELECT id, amount, method, note, paid_at FROM payments WHERE repair_id = ? ORDER BY paid_at');
     $stmt->execute([$repair['id']]);
     $repair['payments'] = $stmt->fetchAll();
+
+    // Decode services_json (TEXT column storing an array of chosen services)
+    // so the frontend receives a native array, not a JSON-encoded string.
+    if (isset($repair['services_json']) && is_string($repair['services_json']) && $repair['services_json'] !== '') {
+        $decoded = json_decode($repair['services_json'], true);
+        $repair['services_json'] = is_array($decoded) ? $decoded : [];
+    } else {
+        $repair['services_json'] = [];
+    }
 }
 
 function next_ticket_no(): string {
@@ -59,7 +68,13 @@ switch ($method) {
         // same id across localStorage and MySQL.
         $newId = !empty($b['id']) ? trim((string)$b['id']) : uniqid('r_', true);
         $ticket = !empty($b['ticket_no']) ? trim((string)$b['ticket_no']) : next_ticket_no();
-        $stmt = db()->prepare('INSERT INTO repairs (id, ticket_no, customer_id, device_brand, device_model, serial_no, complaint, notes, service_fee, deposit, status, technician_id, branch_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
+        // services_json — array of {id, category_id, name, price, is_custom}.
+        // Accept either an array (encode) or a pre-encoded string.
+        $servicesJson = null;
+        if (array_key_exists('services_json', $b)) {
+            $servicesJson = is_array($b['services_json']) ? json_encode($b['services_json']) : $b['services_json'];
+        }
+        $stmt = db()->prepare('INSERT INTO repairs (id, ticket_no, customer_id, device_brand, device_model, serial_no, complaint, notes, service_fee, deposit, status, technician_id, branch_id, services_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
         $stmt->execute([
             $newId, $ticket, (string)$b['customer_id'], $b['device_brand'], $b['device_model'],
             $b['serial_no'] ?? '', $b['complaint'], $b['notes'] ?? '',
@@ -67,6 +82,7 @@ switch ($method) {
             $b['status'] ?? 'pending',
             !empty($b['technician_id']) ? (string)$b['technician_id'] : null,
             $b['branch_id'] ?? null,
+            $servicesJson,
         ]);
         $stmt = db()->prepare('SELECT * FROM repairs WHERE id=?');
         $stmt->execute([$newId]);
@@ -86,7 +102,8 @@ switch ($method) {
         $hasFields = array_key_exists('device_brand', $b) || array_key_exists('device_model', $b)
                   || array_key_exists('serial_no', $b) || array_key_exists('complaint', $b)
                   || array_key_exists('notes', $b) || array_key_exists('technician_id', $b)
-                  || array_key_exists('service_fee', $b) || array_key_exists('deposit', $b);
+                  || array_key_exists('service_fee', $b) || array_key_exists('deposit', $b)
+                  || array_key_exists('services_json', $b);
         if ($hasFields) {
             // Build the SET clause ONLY from keys actually present in the
             // payload so partial PUTs never blank out other columns.
@@ -101,6 +118,9 @@ switch ($method) {
                 'technician_id' => fn($v) => $v === '' || $v === null ? null : (string)$v,
                 'service_fee'   => fn($v) => (float)$v,
                 'deposit'       => fn($v) => (float)$v,
+                // services_json accepts either an array (encoded to JSON)
+                // or an already-encoded JSON string / null.
+                'services_json' => fn($v) => is_array($v) ? json_encode($v) : $v,
             ];
             foreach ($map as $col => $cast) {
                 if (array_key_exists($col, $b)) {

@@ -2,7 +2,7 @@
 // When REACT_APP_DATA_MODE=php, every mutation is also mirrored to the PHP
 // backend via phpMirror (write-through) so MySQL on the VPS stays in sync.
 
-import { SEED_USERS, SEED_CUSTOMERS, SEED_SPAREPARTS, SEED_REPAIRS, SEED_BRANCHES } from './mockData';
+import { SEED_USERS, SEED_CUSTOMERS, SEED_SPAREPARTS, SEED_REPAIRS, SEED_BRANCHES, SEED_SERVICE_CATEGORIES, SEED_SERVICE_ITEMS } from './mockData';
 import { phpMirror } from './phpMirror';
 
 const KEYS = {
@@ -11,6 +11,8 @@ const KEYS = {
   spareparts: 'kk_spareparts',
   repairs: 'kk_repairs',
   branches: 'kk_branches',
+  serviceCategories: 'kk_service_categories',
+  serviceItems: 'kk_service_items',
   movements: 'kk_stock_movements',
   currentBranch: 'kk_current_branch',
   session: 'kk_session',
@@ -56,6 +58,8 @@ export function ensureSeed() {
     write(KEYS.spareparts, SEED_SPAREPARTS);
     write(KEYS.repairs, SEED_REPAIRS);
     write(KEYS.branches, SEED_BRANCHES);
+    write(KEYS.serviceCategories, SEED_SERVICE_CATEGORIES);
+    write(KEYS.serviceItems, SEED_SERVICE_ITEMS);
     write(KEYS.settings, DEFAULT_SETTINGS);
     write(KEYS.seeded, '1');
     // Fire cross-device sync for every seeded repair so first-time public
@@ -72,6 +76,12 @@ export function ensureSeed() {
   }
   if (!localStorage.getItem(KEYS.branches)) {
     write(KEYS.branches, SEED_BRANCHES);
+  }
+  if (!localStorage.getItem(KEYS.serviceCategories)) {
+    write(KEYS.serviceCategories, SEED_SERVICE_CATEGORIES);
+  }
+  if (!localStorage.getItem(KEYS.serviceItems)) {
+    write(KEYS.serviceItems, SEED_SERVICE_ITEMS);
   }
 }
 
@@ -149,6 +159,87 @@ export const branchesApi = {
   },
   getCurrent: () => localStorage.getItem(KEYS.currentBranch) || null,
 };
+
+// ============ SERVICE CATEGORIES & SERVICE ITEMS (Katalog Jasa) ============
+// Global (tidak per cabang). CRUD hanya oleh admin.
+function fireServiceMutation() {
+  window.dispatchEvent(new Event('kk_service_catalog_changed'));
+}
+
+export const serviceCategoriesApi = {
+  list: () => read(KEYS.serviceCategories, []).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name)),
+  get: (id) => read(KEYS.serviceCategories, []).find((c) => c.id === id),
+  create: (data) => {
+    const items = read(KEYS.serviceCategories, []);
+    if (!data.name?.trim()) throw new Error('Nama kategori wajib');
+    const item = { id: uid('sc'), sort_order: items.length + 1, ...data };
+    items.push(item);
+    write(KEYS.serviceCategories, items);
+    phpMirror.serviceCategory.upsert({ ...item, __isNew: true });
+    fireServiceMutation();
+    return item;
+  },
+  update: (id, data) => {
+    const items = read(KEYS.serviceCategories, []);
+    const idx = items.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('Kategori tidak ditemukan');
+    items[idx] = { ...items[idx], ...data };
+    write(KEYS.serviceCategories, items);
+    phpMirror.serviceCategory.upsert(items[idx]);
+    fireServiceMutation();
+    return items[idx];
+  },
+  delete: (id) => {
+    // Cascade delete items locally to mirror the ON DELETE CASCADE FK on MySQL
+    const cats = read(KEYS.serviceCategories, []).filter((c) => c.id !== id);
+    const items = read(KEYS.serviceItems, []).filter((s) => s.category_id !== id);
+    write(KEYS.serviceCategories, cats);
+    write(KEYS.serviceItems, items);
+    phpMirror.serviceCategory.remove(id);
+    fireServiceMutation();
+  },
+};
+
+export const serviceItemsApi = {
+  list: () => read(KEYS.serviceItems, []),
+  byCategory: (category_id) => read(KEYS.serviceItems, []).filter((s) => s.category_id === category_id).sort((a, b) => a.name.localeCompare(b.name)),
+  get: (id) => read(KEYS.serviceItems, []).find((s) => s.id === id),
+  create: (data) => {
+    const items = read(KEYS.serviceItems, []);
+    if (!data.name?.trim()) throw new Error('Nama jasa wajib');
+    if (!data.category_id) throw new Error('Kategori wajib dipilih');
+    const item = {
+      id: uid('si'),
+      default_price: Number(data.default_price) || 0,
+      duration_minutes: data.duration_minutes ? Number(data.duration_minutes) : null,
+      ...data,
+    };
+    items.push(item);
+    write(KEYS.serviceItems, items);
+    phpMirror.serviceItem.upsert({ ...item, __isNew: true });
+    fireServiceMutation();
+    return item;
+  },
+  update: (id, data) => {
+    const items = read(KEYS.serviceItems, []);
+    const idx = items.findIndex((s) => s.id === id);
+    if (idx === -1) throw new Error('Jasa tidak ditemukan');
+    items[idx] = { ...items[idx], ...data };
+    if (data.default_price !== undefined) items[idx].default_price = Number(data.default_price) || 0;
+    if (data.duration_minutes !== undefined) items[idx].duration_minutes = data.duration_minutes ? Number(data.duration_minutes) : null;
+    write(KEYS.serviceItems, items);
+    phpMirror.serviceItem.upsert(items[idx]);
+    fireServiceMutation();
+    return items[idx];
+  },
+  delete: (id) => {
+    const items = read(KEYS.serviceItems, []).filter((s) => s.id !== id);
+    write(KEYS.serviceItems, items);
+    phpMirror.serviceItem.remove(id);
+    fireServiceMutation();
+  },
+};
+
 
 // ============ SETTINGS ============
 export const settingsApi = {
